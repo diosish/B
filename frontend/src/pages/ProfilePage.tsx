@@ -1,3 +1,4 @@
+// frontend/src/pages/ProfilePage.tsx
 import React, { useEffect, useState } from 'react'
 import API from '../api/axios'
 import { FormRenderer } from '../components/FormRenderer'
@@ -8,21 +9,28 @@ export default function ProfilePage() {
   const [schema, setSchema] = useState<any>(null)
 
   useEffect(() => {
-    API.get<UserRead>('/users/me').then(r => {
-      setUser(r.data)
-      return API.get(`/subtypes/${r.data.subtype_id}`)
-    }).then(res => setSchema(res.data.fields_schema))
+    API.get<UserRead>('/users/me')
+      .then(r => {
+        setUser(r.data)
+        return API.get(`/subtypes/${r.data.subtype_id}`)
+      })
+      .then(res => setSchema(res.data.fields_schema))
+      .catch(err => console.error(err))
   }, [])
 
-  if (!user || !schema) return <div>Загрузка…</div>
+  if (!user || !schema) return <div>Загрузка профиля…</div>
 
   return (
     <div>
-      <h1>Профиль {user.full_name}</h1>
+      <h1>Профиль: {user.full_name}</h1>
       <FormRenderer
         schema={schema}
         defaultValues={user.profile_data}
-        onSubmit={data => API.patch(`/users/${user.id}`, { profile_data: data })}
+        onSubmit={data =>
+          API.patch(`/users/${user.id}`, { profile_data: data })
+            .then(() => alert('Сохранено'))
+            .catch(() => alert('Ошибка при сохранении'))
+        }
       />
     </div>
   )
