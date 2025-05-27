@@ -1,12 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
 
 from .. import crud, models, schemas
 from ..database import get_db
-from ..auth import get_telegram_user
+from ..auth import get_telegram_user_flexible
 
 router = APIRouter()
+
+
+class EventStatusUpdate(BaseModel):
+    status: str
 
 
 @router.get("/", response_model=List[schemas.EventResponse])
@@ -46,13 +51,18 @@ def create_event(
         event: schemas.EventCreate,
         organizer_id: Optional[int] = Query(None),
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user)
+        telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
     """Создание мероприятия"""
+    print(f"🎯 Creating event for user: {telegram_user}")
+
     # Находим организатора в БД
     db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
     if not db_user:
         raise HTTPException(status_code=404, detail="User not registered")
+
+    if db_user.role != "organizer":
+        raise HTTPException(status_code=403, detail="Only organizers can create events")
 
     return crud.create_event(db, event, db_user.id)
 
@@ -66,11 +76,52 @@ def get_event(event_id: int, db: Session = Depends(get_db)):
     return db_event
 
 
+@router.put("/{event_id}/status")
+def update_event_status(
+        event_id: int,
+        status_update: EventStatusUpdate,
+        db: Session = Depends(get_db),
+        telegram_user: dict = Depends(get_telegram_user_flexible)
+):
+    """Обновление статуса мероприятия"""
+    print(f"🔄 Updating event {event_id} status to {status_update.status}")
+
+    # Проверяем, что пользователь - организатор этого мероприятия
+    db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    event = db.query(models.Event).filter(models.Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    if event.organizer_id != db_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Проверяем валидность статуса
+    valid_statuses = ["active", "completed", "cancelled"]
+    if status_update.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+
+    # Обновляем статус
+    old_status = event.status
+    event.status = status_update.status
+    db.commit()
+    db.refresh(event)
+
+    print(f"✅ Event {event_id} status updated from {old_status} to {status_update.status}")
+
+    return {
+        "message": f"Event status updated to {status_update.status}",
+        "event": event
+    }
+
+
 @router.get("/{event_id}/applications")
 def get_event_applications(
         event_id: int,
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user)
+        telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
     """Получение заявок на мероприятие (только для организатора)"""
     # Проверяем, что пользователь - организатор этого мероприятия
@@ -87,6 +138,47 @@ def get_event_applications(
     ).all()
 
     return applications
+
+
+@router.delete("/{event_id}")
+def delete_event(
+        event_id: int,
+        db: Session = Depends(get_db),
+        telegram_user: dict = Depends(get_telegram_user_flexible)
+):
+    """Удаление мероприятия (только для организатора)"""
+    print(f"🗑️ Deleting event {event_id}")
+
+    # Проверяем, что пользователь - организатор этого мероприятия
+    db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    event = db.query(models.Event).filter(models.Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    if event.organizer_id != db_user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Проверяем, можно ли удалить мероприятие
+    applications_count = db.query(models.Application).filter(
+        models.Application.event_id == event_id
+    ).count()
+
+    if applications_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete event with applications. Cancel the event instead."
+        )
+
+    # Удаляем мероприятие
+    db.delete(event)
+    db.commit()
+
+    print(f"✅ Event {event_id} deleted successfully")
+
+    return {"message": "Event deleted successfully"}
 
 
 @router.get("/test")

@@ -13,6 +13,18 @@ class UserRole(enum.Enum):
     ADMIN = "admin"
 
 
+class EventStatus(enum.Enum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+
+class ApplicationStatus(enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -48,9 +60,10 @@ class Event(Base):
     duration = Column(Integer)  # часы
     payment = Column(Float)
     work_type = Column(String(50))
-    status = Column(String(20), default="active")
+    status = Column(String(20), default="active")  # active, completed, cancelled
     organizer_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     organizer = relationship("User", backref="events")
 
@@ -63,9 +76,10 @@ class Application(Base):
     volunteer_id = Column(Integer, ForeignKey("users.id"))
     status = Column(String(20), default="pending")  # pending, approved, rejected
     applied_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    event = relationship("Event")
-    volunteer = relationship("User")
+    event = relationship("Event", backref="applications")
+    volunteer = relationship("User", backref="volunteer_applications")
 
 
 class Review(Base):
@@ -78,3 +92,7 @@ class Review(Base):
     rating = Column(Integer)  # 1-5
     comment = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    event = relationship("Event", backref="reviews")
+    volunteer = relationship("User", foreign_keys=[volunteer_id], backref="received_reviews")
+    organizer = relationship("User", foreign_keys=[organizer_id], backref="given_reviews")

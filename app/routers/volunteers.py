@@ -5,6 +5,7 @@ from typing import List
 from .. import crud, models, schemas
 from ..database import get_db
 from ..auth import get_telegram_user_flexible
+from ..bot import notify_new_application
 
 router = APIRouter()
 
@@ -70,7 +71,7 @@ def get_my_applications(
 
 
 @router.post("/apply", response_model=schemas.ApplicationResponse)
-def apply_to_event(
+async def apply_to_event(
         application: schemas.ApplicationCreate,
         db: Session = Depends(get_db),
         telegram_user: dict = Depends(get_telegram_user_flexible)
@@ -89,9 +90,31 @@ def apply_to_event(
     if existing_application:
         raise HTTPException(status_code=400, detail="Application already exists")
 
+    # Получаем информацию о мероприятии и организаторе
+    event = crud.get_event_by_id(db, application.event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    organizer = crud.get_user_by_id(db, event.organizer_id)
+    if not organizer:
+        raise HTTPException(status_code=404, detail="Organizer not found")
+
     # Создаем заявку
     application.volunteer_id = db_user.id
-    return crud.create_application(db, application)
+    db_application = crud.create_application(db, application)
+
+    # Отправляем уведомление организатору
+    try:
+        await notify_new_application(
+            organizer.telegram_id,
+            event.title,
+            db_user.full_name
+        )
+        print(f"📱 Notification sent to organizer {organizer.telegram_id}")
+    except Exception as e:
+        print(f"❌ Failed to send notification to organizer: {e}")
+
+    return db_application
 
 
 @router.get("/test")

@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from .database import engine, SessionLocal
 from .models import Base
-from .routers import volunteers, organizers, events, admin, applications, auth
+from .routers import volunteers, organizers, events, admin, applications, auth, reviews
 
 load_dotenv()
 
@@ -27,6 +27,7 @@ app.include_router(events.router, prefix="/api/events", tags=["events"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(applications.router, prefix="/api/applications", tags=["applications"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(reviews.router, prefix="/api/reviews", tags=["reviews"])
 
 # ===== ОСНОВНЫЕ СТРАНИЦЫ =====
 @app.get("/", response_class=HTMLResponse)
@@ -71,15 +72,12 @@ async def organizer_applications_page(request: Request):
     """Заявки на мероприятие"""
     return templates.TemplateResponse("organizer_applications.html", {"request": request})
 
-# Старые маршруты для совместимости
-@app.get("/volunteer", response_class=HTMLResponse)
-async def volunteer_redirect(request: Request):
-    return templates.TemplateResponse("volunteer_redirect.html", {"request": request})
+@app.get("/organizer/reviews", response_class=HTMLResponse)
+async def organizer_reviews_page(request: Request):
+    """Отзывы о волонтёрах"""
+    return templates.TemplateResponse("event_reviews.html", {"request": request})
 
-@app.get("/organizer", response_class=HTMLResponse)
-async def organizer_redirect(request: Request):
-    return templates.TemplateResponse("organizer_redirect.html", {"request": request})
-
+# ===== СТРАНИЦЫ РЕГИСТРАЦИИ =====
 @app.get("/register/volunteer", response_class=HTMLResponse)
 async def volunteer_registration_page(request: Request):
     """Страница регистрации волонтёра"""
@@ -89,6 +87,15 @@ async def volunteer_registration_page(request: Request):
 async def organizer_registration_page(request: Request):
     """Страница регистрации организатора"""
     return templates.TemplateResponse("register_organizer.html", {"request": request})
+
+# ===== СОВМЕСТИМОСТЬ =====
+@app.get("/volunteer", response_class=HTMLResponse)
+async def volunteer_redirect(request: Request):
+    return templates.TemplateResponse("volunteer_redirect.html", {"request": request})
+
+@app.get("/organizer", response_class=HTMLResponse)
+async def organizer_redirect(request: Request):
+    return templates.TemplateResponse("organizer_redirect.html", {"request": request})
 
 if __name__ == "__main__":
     import uvicorn
