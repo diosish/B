@@ -22,8 +22,9 @@
             padding: 16px;
             margin-bottom: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            text-align: center;
         }
-        
+
         .telegram-button {
             background: var(--tg-theme-button-color, #2678b6);
             color: var(--tg-theme-button-text-color, #ffffff);
@@ -35,7 +36,7 @@
             width: 100%;
             margin-bottom: 8px;
         }
-        
+
         .loading-spinner {
             display: inline-block;
             width: 20px;
@@ -45,40 +46,66 @@
             border-top-color: #2678b6;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
             to { transform: rotate(360deg); }
+        }
+
+        .user-info {
+            background: #2678b6;
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div id="loadingScreen" class="text-center" style="padding: 50px 20px;">
+        <!-- Экран загрузки -->
+        <div id="loadingScreen" class="telegram-card">
+            <div class="loading-spinner"></div>
+            <p>Проверяем регистрацию...</p>
+        </div>
+
+        <!-- Экран для зарегистрированного пользователя -->
+        <div id="registeredScreen" style="display: none;">
+            <div class="user-info">
+                <div id="registeredUserName"></div>
+                <small id="registeredUserRole"></small>
+            </div>
+
             <div class="telegram-card">
+                <h4>✅ Добро пожаловать обратно!</h4>
+                <p>Переходим в ваш профиль...</p>
                 <div class="loading-spinner"></div>
-                <p>Проверяем регистрацию...</p>
             </div>
         </div>
-        
-        <div id="welcomeScreen" style="display: none;">
+
+        <!-- Экран для нового пользователя -->
+        <div id="newUserScreen" style="display: none;">
+            <div class="user-info">
+                <div id="newUserName"></div>
+                <small id="newUserId"></small>
+            </div>
+
             <div class="telegram-card">
-                <h2>🎉 Добро пожаловать!</h2>
-                <p>Система регистрации оплачиваемых волонтёров</p>
-                
-                <button class="telegram-button" onclick="selectRole('volunteer')">
+                <h3>🎉 Добро пожаловать!</h3>
+                <p>Вы не зарегистрированы в системе</p>
+
+                <h5>Выберите вашу роль:</h5>
+
+                <button class="telegram-button" onclick="goToVolunteerRegistration()">
                     👥 Я волонтёр
                 </button>
-                <button class="telegram-button" onclick="selectRole('organizer')">
+                <button class="telegram-button" onclick="goToOrganizerRegistration()">
                     🏢 Я организатор
                 </button>
             </div>
-        </div>
-        
-        <div id="registeredScreen" style="display: none;">
-            <div class="telegram-card text-center">
-                <h4>✅ Добро пожаловать обратно!</h4>
-                <p id="userRole"></p>
-                <div class="loading-spinner"></div>
+
+            <div class="telegram-card">
+                <h6>ℹ️ О системе</h6>
+                <p><small>Система для поиска оплачиваемой волонтёрской работы и помощников для мероприятий.</small></p>
             </div>
         </div>
     </div>
@@ -86,7 +113,7 @@
     <script>
         let tg = window.Telegram?.WebApp;
         let currentUser = null;
-        
+
         function init() {
             if (tg) {
                 tg.ready();
@@ -96,50 +123,78 @@
                     first_name: 'Test',
                     last_name: 'User'
                 };
+            } else {
+                currentUser = {
+                    id: 123456789,
+                    first_name: 'Test',
+                    last_name: 'User'
+                };
             }
-            
+
+            console.log('Current user:', currentUser);
             checkRegistration();
         }
-        
+
         async function checkRegistration() {
             try {
                 const response = await fetch(`/api/auth/check?telegram_id=${currentUser.id}`);
                 const data = await response.json();
-                
+
+                console.log('Registration check:', data);
+
                 if (data.registered) {
-                    showRegisteredScreen(data.user);
+                    // Пользователь зарегистрирован - показываем приветствие и перенаправляем
+                    showRegisteredUser(data.user);
+
+                    // Перенаправляем через 1.5 секунды
                     setTimeout(() => {
-                        redirectToRole(data.user.role);
-                    }, 2000);
+                        redirectToProfile(data.user.role);
+                    }, 1500);
                 } else {
-                    showWelcomeScreen();
+                    // Новый пользователь - показываем выбор роли
+                    showNewUserScreen();
                 }
             } catch (error) {
-                console.error('Error:', error);
-                showWelcomeScreen();
+                console.error('Error checking registration:', error);
+                // При ошибке API показываем экран нового пользователя
+                showNewUserScreen();
             }
         }
-        
-        function showWelcomeScreen() {
-            document.getElementById('loadingScreen').style.display = 'none';
-            document.getElementById('welcomeScreen').style.display = 'block';
-        }
-        
-        function showRegisteredScreen(user) {
+
+        function showRegisteredUser(user) {
             document.getElementById('loadingScreen').style.display = 'none';
             document.getElementById('registeredScreen').style.display = 'block';
-            document.getElementById('userRole').textContent = user.role === 'volunteer' ? '👥 Волонтёр' : '🏢 Организатор';
+
+            document.getElementById('registeredUserName').textContent = user.full_name;
+
+            const roleLabels = {
+                'volunteer': '👥 Волонтёр',
+                'organizer': '🏢 Организатор',
+                'admin': '⚙️ Администратор'
+            };
+
+            document.getElementById('registeredUserRole').textContent = roleLabels[user.role] || user.role;
         }
-        
-        function selectRole(role) {
-            if (role === 'volunteer') {
-                window.location.href = '/volunteer/profile';
-            } else if (role === 'organizer') {
-                window.location.href = '/organizer/profile';
-            }
+
+        function showNewUserScreen() {
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('newUserScreen').style.display = 'block';
+
+            // Показываем информацию о пользователе
+            document.getElementById('newUserName').textContent =
+                `${currentUser.first_name} ${currentUser.last_name || ''}`.trim();
+            document.getElementById('newUserId').textContent = `ID: ${currentUser.id}`;
         }
-        
-        function redirectToRole(role) {
+
+        function goToVolunteerRegistration() {
+            window.location.href = '/register/volunteer';
+        }
+
+        function goToOrganizerRegistration() {
+            window.location.href = '/register/organizer';
+        }
+
+        function redirectToProfile(role) {
             if (role === 'volunteer') {
                 window.location.href = '/volunteer/profile';
             } else if (role === 'organizer') {

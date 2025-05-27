@@ -15,25 +15,29 @@ def register_organizer(
         db: Session = Depends(get_db),
         telegram_user: dict = Depends(get_telegram_user)
 ):
-    """Регистрация организатора через Telegram"""
-
-    # Используем данные из Telegram
-    user.telegram_id = telegram_user['id']
-    if not user.full_name:
-        user.full_name = f"{telegram_user['first_name']} {telegram_user['last_name'] or ''}".strip()
-
-    user.role = "organizer"
-
-    # Проверяем, не зарегистрирован ли уже
     db_user = crud.get_user_by_telegram_id(db, user.telegram_id)
     if db_user:
-        # Обновляем существующего пользователя
-        for field, value in user.dict(exclude_unset=True).items():
-            if value is not None:
-                setattr(db_user, field, value)
-        db.commit()
-        db.refresh(db_user)
-        return db_user
+        raise HTTPException(status_code=400, detail="User already registered")
+    else:
+        """Регистрация организатора через Telegram"""
+
+        # Используем данные из Telegram
+        user.telegram_id = telegram_user['id']
+        if not user.full_name:
+            user.full_name = f"{telegram_user['first_name']} {telegram_user['last_name'] or ''}".strip()
+
+        user.role = "organizer"
+
+        # Проверяем, не зарегистрирован ли уже
+        db_user = crud.get_user_by_telegram_id(db, user.telegram_id)
+        if db_user:
+            # Обновляем существующего пользователя
+            for field, value in user.dict(exclude_unset=True).items():
+                if value is not None:
+                    setattr(db_user, field, value)
+            db.commit()
+            db.refresh(db_user)
+            return db_user
 
     return crud.create_user(db, user)
 

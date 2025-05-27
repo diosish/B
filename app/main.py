@@ -80,6 +80,16 @@ async def volunteer_redirect(request: Request):
 async def organizer_redirect(request: Request):
     return templates.TemplateResponse("organizer_redirect.html", {"request": request})
 
+@app.get("/register/volunteer", response_class=HTMLResponse)
+async def volunteer_registration_page(request: Request):
+    """Страница регистрации волонтёра"""
+    return templates.TemplateResponse("register_volunteer.html", {"request": request})
+
+@app.get("/register/organizer", response_class=HTMLResponse)
+async def organizer_registration_page(request: Request):
+    """Страница регистрации организатора"""
+    return templates.TemplateResponse("register_organizer.html", {"request": request})
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
