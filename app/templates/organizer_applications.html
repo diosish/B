@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Заявки на мероприятие</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 10px;
+        }
+
+        .telegram-card {
+            background: var(--tg-theme-bg-color);
+            border: 1px solid var(--tg-theme-hint-color);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .application-card {
+            border-left: 4px solid #6c757d;
+            margin-bottom: 15px;
+        }
+
+        .application-card.pending {
+            border-left-color: #ffc107;
+        }
+
+        .application-card.approved {
+            border-left-color: #28a745;
+        }
+
+        .application-card.rejected {
+            border-left-color: #dc3545;
+        }
+
+        .btn-approve {
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            margin: 2px;
+            font-size: 14px;
+        }
+
+        .btn-reject {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            margin: 2px;
+            font-size: 14px;
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-approved {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-rejected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="telegram-card">
+            <h3>📋 Заявки на мероприятие</h3>
+            <div id="eventInfo">
+                <p class="text-muted">Загрузка информации о мероприятии...</p>
+            </div>
+        </div>
+
+        <div id="applicationsList">
+            <div class="text-center">
+                <div class="spinner-border" role="status"></div>
+                <p>Загружаем заявки...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram.WebApp;
+        let currentUser = null;
+        let eventId = null;
+
+        // Инициализация
+        function init() {
+            if (tg) {
+                tg.ready();
+                tg.expand();
+
+                currentUser = tg.initDataUnsafe?.user || {
+                    id: 123456789,
+                    first_name: 'Test Organizer'
+                };
+
+                // Получаем ID мероприятия из URL параметров
+                const urlParams = new URLSearchParams(window.location.search);
+                eventId = urlParams.get('event_id');
+
+                if (eventId) {
+                    loadApplications();
+                } else {
+                    document.getElementById('applicationsList').innerHTML =
+                        '<div class="alert alert-danger">Не указан ID мероприятия</div>';
+                }
+
+                // Настройка главной кнопки
+                tg.MainButton.setText('🏠 Назад');
+                tg.MainButton.show();
+                tg.MainButton.onClick(() => {
+                    window.history.back();
+                });
+            }
+        }
+
+        // Загружаем заявки
+        async function loadApplications() {
+            try {
+                const response = await fetch(`/api/applications/event/${eventId}?organizer_telegram_id=${currentUser.id}`);
+                const applications = await response.json();
+
+                displayApplications(applications);
+            } catch (error) {
+                console.error('Error loading applications:', error);
+                document.getElementById('applicationsList').innerHTML =
+                    '<div class="alert alert-danger">❌ Ошибка загрузки заявок</div>';
+            }
+        }
+
+        // Отображение заявок
+        function displayApplications(applications) {
+            const container = document.getElementById('applicationsList');
+
+            if (applications.length === 0) {
+                container.innerHTML = `
+                    <div class="telegram-card">
+                        <p class="text-muted text-center">📭 Пока нет заявок на это мероприятие</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const statusLabels = {
+                'pending': '⏳ На рассмотрении',
+                'approved': '✅ Одобрена',
+                'rejected': '❌ Отклонена'
+            };
+
+            container.innerHTML = applications.map(app => `
+                <div class="telegram-card application-card ${app.status}">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div>
+                            <h6 class="mb-1"><strong>${app.volunteer.full_name}</strong></h6>
+                            <small class="text-muted">Подана: ${new Date(app.applied_at).toLocaleDateString('ru-RU')}</small>
+                        </div>
+                        <span class="status-badge status-${app.status}">
+                            ${statusLabels[app.status]}
+                        </span>
+                    </div>
+
+                    ${app.volunteer.skills ? `
+                        <div class="mb-2">
+                            <small><strong>Навыки:</strong></small>
+                            <p style="font-size: 14px; margin-bottom: 8px;">${app.volunteer.skills}</p>
+                        </div>
+                    ` : ''}
+
+                    <div class="mb-2">
+                        <small class="text-muted">
+                            📍 ${app.volunteer.city || 'Город не указан'} •
+                            ⭐ Рейтинг: ${app.volunteer.rating || 0}
+                            ${app.volunteer.volunteer_type ? ` • 🏷️ ${app.volunteer.volunteer_type}` : ''}
+                        </small>
+                    </div>
+
+                    ${app.status === 'pending' ? `
+                        <div class="d-flex gap-2 mt-2">
+                            <button class="btn-approve" onclick="updateStatus(${app.id}, 'approved')">
+                                ✅ Одобрить
+                            </button>
+                            <button class="btn-reject" onclick="updateStatus(${app.id}, 'rejected')">
+                                ❌ Отклонить
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Обновление статуса заявки
+        async function updateStatus(applicationId, status) {
+            try {
+                const response = await fetch(`/api/applications/${applicationId}/status?status=${status}&organizer_telegram_id=${currentUser.id}`, {
+                    method: 'PUT'
+                });
+
+                if (response.ok) {
+                    const statusText = status === 'approved' ? 'одобрена' : 'отклонена';
+
+                    if (tg.showAlert) {
+                        tg.showAlert(`✅ Заявка ${statusText}!`);
+                    }
+
+                    if (tg.HapticFeedback) {
+                        tg.HapticFeedback.notificationOccurred('success');
+                    }
+
+                    // Перезагружаем список
+                    setTimeout(loadApplications, 1000);
+                } else {
+                    throw new Error('Failed to update status');
+                }
+            } catch (error) {
+                console.error('Error updating status:', error);
+
+                if (tg.showAlert) {
+                    tg.showAlert('❌ Ошибка при обновлении статуса');
+                }
+            }
+        }
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

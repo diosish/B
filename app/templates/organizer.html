@@ -1,4 +1,3 @@
-!-- ===== app/templates/organizer.html (обновленный для Telegram) ===== -->
 {% extends "base.html" %}
 
 {% block title %}Панель организатора{% endblock %}
@@ -12,7 +11,7 @@
             <label class="form-label">Полное имя / Название организации</label>
             <input type="text" class="form-control" id="orgName" required>
         </div>
-        
+
         <div class="mb-3">
             <label class="form-label">Тип организации</label>
             <select class="form-control" id="orgType">
@@ -22,22 +21,22 @@
                 <option value="НКО">🤝 НКО</option>
             </select>
         </div>
-        
-        <div class="mb-3">
-            <label class="form-label">ИНН (если есть)</label>
-            <input type="text" class="form-control" id="inn" placeholder="1234567890">
+
+        <div class="mb-3" id="innField">
+            <label class="form-label">ИНН</label>
+            <input type="text" class="form-control" id="inn" placeholder="Для ИП и ООО">
         </div>
-        
+
         <div class="mb-3">
             <label class="form-label">Город</label>
             <input type="text" class="form-control" id="city" placeholder="Москва">
         </div>
-        
+
         <div class="mb-3">
             <label class="form-label">Описание деятельности</label>
             <textarea class="form-control" id="description" rows="3" placeholder="Чем занимается ваша организация..."></textarea>
         </div>
-        
+
         <button type="submit" class="telegram-button">
             💾 Сохранить профиль
         </button>
@@ -52,12 +51,12 @@
             <label class="form-label">Название мероприятия</label>
             <input type="text" class="form-control" id="eventTitle" required placeholder="Помощь на выставке">
         </div>
-        
+
         <div class="mb-3">
             <label class="form-label">Описание</label>
             <textarea class="form-control" id="eventDescription" rows="3" placeholder="Подробное описание мероприятия и задач для волонтёров"></textarea>
         </div>
-        
+
         <div class="row">
             <div class="col-6">
                 <div class="mb-3">
@@ -72,7 +71,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="row">
             <div class="col-6">
                 <div class="mb-3">
@@ -87,7 +86,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="mb-3">
             <label class="form-label">Тип работы</label>
             <select class="form-control" id="workType">
@@ -97,7 +96,7 @@
                 <option value="информационное">💬 Информационная поддержка</option>
             </select>
         </div>
-        
+
         <button type="submit" class="telegram-button">
             🚀 Создать мероприятие
         </button>
@@ -108,7 +107,10 @@
 <div class="telegram-card">
     <h4>📋 Мои мероприятия</h4>
     <div id="myEventsList">
-        <p class="text-muted">Создайте первое мероприятие</p>
+        <div class="text-center">
+            <div class="spinner-border spinner-border-sm" role="status"></div>
+            <span class="ms-2">Загрузка...</span>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -116,7 +118,7 @@
 {% block scripts %}
 <script>
     let currentUser = null;
-    
+
     // Инициализация страницы организатора
     function initOrganizerPage() {
         currentUser = tg.initDataUnsafe?.user || {
@@ -124,20 +126,35 @@
             first_name: 'Test',
             last_name: 'User'
         };
-        
+
         // Заполняем форму данными пользователя
         if (currentUser) {
-            document.getElementById('orgName').value = 
+            document.getElementById('orgName').value =
                 `${currentUser.first_name} ${currentUser.last_name || ''}`.trim();
+            document.getElementById('city').value = currentUser.city || '';
         }
-        
+
+        // Обработчик изменения типа организации
+        document.getElementById('orgType').addEventListener('change', function() {
+            const innField = document.getElementById('innField');
+            const selectedType = this.value;
+
+            if (selectedType === 'физлицо') {
+                innField.style.display = 'none';
+                document.getElementById('inn').required = false;
+            } else {
+                innField.style.display = 'block';
+                document.getElementById('inn').required = true;
+            }
+        });
+
         // Загружаем мероприятия организатора
         loadMyEvents();
-        
+
         // Настраиваем главную кнопку
         setupMainButton();
     }
-    
+
     // Настройка главной кнопки Telegram
     function setupMainButton() {
         if (tg.MainButton) {
@@ -148,11 +165,11 @@
             });
         }
     }
-    
+
     // Обработка формы регистрации организатора
     document.getElementById('organizerForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        
+
         const formData = {
             telegram_id: currentUser.id,
             full_name: document.getElementById('orgName').value,
@@ -163,25 +180,25 @@
             description: document.getElementById('description').value,
             role: 'organizer'
         };
-        
+
         try {
             const submitBtn = e.target.querySelector('button[type="submit"]');
             const originalText = submitBtn.innerHTML;
             submitBtn.innerHTML = '⏳ Сохраняем...';
             submitBtn.disabled = true;
-            
+
             const response = await sendToAPI('/api/organizers/register', formData);
-            
+
             if (response) {
                 showNotification('✅ Профиль организатора сохранён!');
-                
+
                 if (tg.HapticFeedback) {
                     tg.HapticFeedback.notificationOccurred('success');
                 }
             }
         } catch (error) {
             showNotification('❌ Ошибка при сохранении профиля', true);
-            
+
             if (tg.HapticFeedback) {
                 tg.HapticFeedback.notificationOccurred('error');
             }
@@ -191,11 +208,11 @@
             submitBtn.disabled = false;
         }
     });
-    
+
     // Обработка формы создания мероприятия
     document.getElementById('eventForm').addEventListener('submit', async function(e) {
         e.preventDefault();
-        
+
         const formData = {
             title: document.getElementById('eventTitle').value,
             description: document.getElementById('eventDescription').value,
@@ -205,13 +222,13 @@
             duration: parseInt(document.getElementById('eventDuration').value) || 1,
             work_type: document.getElementById('workType').value
         };
-        
+
         try {
             const submitBtn = e.target.querySelector('button[type="submit"]');
             const originalText = submitBtn.innerHTML;
             submitBtn.innerHTML = '⏳ Создаём...';
             submitBtn.disabled = true;
-            
+
             const response = await fetch(`/api/events/?organizer_id=${currentUser.id}`, {
                 method: 'POST',
                 headers: {
@@ -220,12 +237,12 @@
                 },
                 body: JSON.stringify(formData)
             });
-            
+
             if (response.ok) {
                 showNotification('✅ Мероприятие создано!');
                 document.getElementById('eventForm').reset();
                 loadMyEvents(); // Обновляем список
-                
+
                 if (tg.HapticFeedback) {
                     tg.HapticFeedback.notificationOccurred('success');
                 }
@@ -234,7 +251,7 @@
             }
         } catch (error) {
             showNotification('❌ Ошибка при создании мероприятия', true);
-            
+
             if (tg.HapticFeedback) {
                 tg.HapticFeedback.notificationOccurred('error');
             }
@@ -244,7 +261,7 @@
             submitBtn.disabled = false;
         }
     });
-    
+
     // Загрузка мероприятий организатора
     async function loadMyEvents() {
         try {
@@ -253,60 +270,118 @@
                     'Authorization': tg.initData || 'test_data'
                 }
             });
-            
+
             const events = await response.json();
             displayMyEvents(events);
         } catch (error) {
             console.error('Error loading my events:', error);
+            document.getElementById('myEventsList').innerHTML =
+                '<p class="text-danger">❌ Ошибка загрузки мероприятий</p>';
         }
     }
-    
+
     // Отображение мероприятий организатора
     function displayMyEvents(events) {
         const myEventsList = document.getElementById('myEventsList');
-        
+
         if (events.length === 0) {
             myEventsList.innerHTML = '<p class="text-muted">📝 У вас пока нет мероприятий</p>';
             return;
         }
-        
+
         myEventsList.innerHTML = events.map(event => `
             <div class="telegram-card" style="margin-bottom: 12px; border-left: 4px solid var(--tg-theme-button-color);">
                 <div class="d-flex justify-content-between align-items-start">
                     <div style="flex-grow: 1;">
                         <h6><strong>${event.title}</strong></h6>
                         <small class="text-muted">
-                            📍 ${event.city || 'Не указан'} • 
-                            💰 ${event.payment || 0} ₽ • 
+                            📍 ${event.city || 'Не указан'} •
+                            💰 ${event.payment || 0} ₽ •
                             ${event.status === 'active' ? '🟢 Активно' : '🔴 Завершено'}
                         </small>
                     </div>
                 </div>
-                
+
                 ${event.description ? `<p class="mt-2 mb-2" style="font-size: 14px;">${event.description}</p>` : ''}
-                
-                <div class="d-flex gap-2 mt-2">
-                    <button class="telegram-button" style="flex: 1; padding: 6px 12px; font-size: 12px;" 
-                            onclick="viewEventApplications(${event.id})">
-                        👥 Заявки
-                    </button>
-                    <button class="telegram-button" style="flex: 1; padding: 6px 12px; font-size: 12px;" 
-                            onclick="editEvent(${event.id})">
-                        ✏️ Редактировать
-                    </button>
+
+                <div class="row mt-2">
+                    <div class="col-4">
+                        <button class="telegram-button" style="width: 100%; padding: 6px 8px; font-size: 12px;"
+                                onclick="viewEventApplications(${event.id})">
+                            📋 Заявки
+                        </button>
+                    </div>
+                    <div class="col-4">
+                        <button class="telegram-button" style="width: 100%; padding: 6px 8px; font-size: 12px;"
+                                onclick="editEvent(${event.id})">
+                            ✏️ Изменить
+                        </button>
+                    </div>
+                    <div class="col-4">
+                        <button class="telegram-button" style="width: 100%; padding: 6px 8px; font-size: 12px;"
+                                onclick="toggleEventStatus(${event.id}, '${event.status}')">
+                            ${event.status === 'active' ? '⏸️ Остановить' : '▶️ Запустить'}
+                        </button>
+                    </div>
                 </div>
             </div>
         `).join('');
     }
-    
+
     // Просмотр заявок на мероприятие
     function viewEventApplications(eventId) {
-        showNotification('📋 Функция просмотра заявок будет реализована в следующей версии');
+        // Открываем страницу заявок
+        window.location.href = `/organizer/applications?event_id=${eventId}`;
     }
-    
+
     // Редактирование мероприятия
     function editEvent(eventId) {
         showNotification('✏️ Функция редактирования будет реализована в следующей версии');
+    }
+
+    // Изменение статуса мероприятия
+    async function toggleEventStatus(eventId, currentStatus) {
+        const newStatus = currentStatus === 'active' ? 'completed' : 'active';
+
+        try {
+            // Здесь будет API запрос для изменения статуса
+            showNotification(`✅ Статус мероприятия изменён на: ${newStatus}`);
+            setTimeout(loadMyEvents, 1000);
+        } catch (error) {
+            showNotification('❌ Ошибка при изменении статуса', true);
+        }
+    }
+
+    // Отправка данных в API
+    async function sendToAPI(endpoint, data) {
+        try {
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': tg.initData || 'test_data'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
+    }
+
+    // Показать уведомление
+    function showNotification(message, isError = false) {
+        if (tg.showAlert) {
+            tg.showAlert(message);
+        } else {
+            alert(message);
+        }
     }
     
     // Инициализация при загрузке страницы

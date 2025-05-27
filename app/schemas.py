@@ -80,3 +80,27 @@ class ApplicationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ApplicationWithVolunteer(BaseModel):
+    id: int
+    event_id: int
+    volunteer_id: int
+    status: str
+    applied_at: datetime
+    volunteer: UserResponse
+
+    class Config:
+        from_attributes = True
+
+
+class ApplicationWithEvent(BaseModel):
+    id: int
+    event_id: int
+    volunteer_id: int
+    status: str
+    applied_at: datetime
+    event: EventResponse
+
+    class Config:
+        from_attributes = True

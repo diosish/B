@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from .database import engine, SessionLocal
 from .models import Base
-from .routers import volunteers, organizers, events, admin
+from .routers import volunteers, organizers, events, admin, applications
 
 load_dotenv()
 
@@ -25,6 +25,7 @@ app.include_router(volunteers.router, prefix="/api/volunteers", tags=["volunteer
 app.include_router(organizers.router, prefix="/api/organizers", tags=["organizers"])
 app.include_router(events.router, prefix="/api/events", tags=["events"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
+app.include_router(applications.router, prefix="/api/applications", tags=["applications"])
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
