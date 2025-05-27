@@ -24,15 +24,31 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://postgres:password@db:5432/volunteer_db
-      BOT_TOKEN: ${BOT_TOKEN:-7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw}
-      WEBAPP_URL: ${WEBAPP_URL:-http://localhost:8000}
-      SECRET_KEY: ${SECRET_KEY:-your_secret_key_here}
+      BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
+      WEBAPP_URL: https://4512-146-70-139-6.ngrok-free.app
+      SECRET_KEY: your_secret_key_here
+      ENVIRONMENT: development
     volumes:
       - .:/app
     command: >
       sh -c "sleep 10 && 
              python -c 'from app.database import engine; from app.models import Base; Base.metadata.create_all(bind=engine)' &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  bot:
+    build: .
+    depends_on:
+      - app
+      - db
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/volunteer_db
+      BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
+      WEBAPP_URL: https://4512-146-70-139-6.ngrok-free.app
+      ENVIRONMENT: development
+    volumes:
+      - .:/app
+    command: python run_bot.py
+    restart: unless-stopped
 
 volumes:
   postgres_data:

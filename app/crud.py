@@ -39,3 +39,12 @@ def update_application_status(db: Session, application_id: int, status: str):
         db.commit()
         db.refresh(db_application)
     return db_application
+
+def get_user_by_id(db: Session, user_id: int):
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+def get_event_by_id(db: Session, event_id: int):
+    return db.query(models.Event).filter(models.Event.id == event_id).first()
+
+def get_events_by_organizer(db: Session, organizer_id: int):
+    return db.query(models.Event).filter(models.Event.organizer_id == organizer_id).all()

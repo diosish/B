@@ -1,16 +1,287 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель волонтёра</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <div class="container mt-4">
-        <h2>Панель волонтёра</h2>
-        <p>Здесь будет интерфейс для волонтёров</p>
-        <a href="/" class="btn btn-secondary">Назад</a>
+{% extends "base.html" %}
+
+{% block title %}Панель волонтёра{% endblock %}
+
+{% block content %}
+<!-- Форма регистрации волонтёра -->
+<div class="telegram-card">
+    <h3>👥 Профиль волонтёра</h3>
+    <form id="volunteerForm">
+        <div class="mb-3">
+            <label class="form-label">Полное имя</label>
+            <input type="text" class="form-control" id="fullName" required>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">Город</label>
+            <input type="text" class="form-control" id="city" placeholder="Москва">
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">Тип волонтёра</label>
+            <select class="form-control" id="volunteerType">
+                <option value="студент">🎓 Студент</option>
+                <option value="фрилансер">💻 Фрилансер</option>
+                <option value="профи">⭐ Профи</option>
+            </select>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">Навыки и опыт</label>
+            <textarea class="form-control" id="skills" rows="3" placeholder="Опишите ваши навыки и опыт работы..."></textarea>
+        </div>
+        
+        <button type="submit" class="telegram-button">
+            💾 Сохранить профиль
+        </button>
+    </form>
+</div>
+
+<!-- Список доступных мероприятий -->
+<div class="telegram-card">
+    <h4>📅 Доступные мероприятия</h4>
+    <div id="eventsList">
+        <div class="text-center">
+            <div class="spinner-border" role="status"></div>
+            <p>Загружаем мероприятия...</p>
+        </div>
     </div>
-</body>
-</html>
+</div>
+
+<!-- Мои заявки -->
+<div class="telegram-card">
+    <h4>📋 Мои заявки</h4>
+    <div id="applicationsList">
+        <p class="text-muted">Здесь будут отображаться ваши заявки</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentUser = null;
+    
+    // Инициализация страницы волонтёра
+    function initVolunteerPage() {
+        currentUser = tg.initDataUnsafe?.user || {
+            id: 123456789,
+            first_name: 'Test',
+            last_name: 'User'
+        };
+        
+        // Заполняем форму данными пользователя
+        if (currentUser) {
+            document.getElementById('fullName').value = 
+                `${currentUser.first_name} ${currentUser.last_name || ''}`.trim();
+        }
+        
+        // Загружаем мероприятия
+        loadEvents();
+        
+        // Настраиваем главную кнопку
+        setupMainButton();
+    }
+    
+    // Настройка главной кнопки Telegram
+    function setupMainButton() {
+        if (tg.MainButton) {
+            tg.MainButton.setText('🏠 На главную');
+            tg.MainButton.show();
+            tg.MainButton.onClick(() => {
+                window.location.href = '/';
+            });
+        }
+    }
+    
+    // Обработка формы регистрации
+    document.getElementById('volunteerForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            telegram_id: currentUser.id,
+            full_name: document.getElementById('fullName').value,
+            city: document.getElementById('city').value,
+            volunteer_type: document.getElementById('volunteerType').value,
+            skills: document.getElementById('skills').value,
+            role: 'volunteer'
+        };
+        
+        try {
+            // Показываем индикатор загрузки
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '⏳ Сохраняем...';
+            submitBtn.disabled = true;
+            
+            const response = await sendToAPI('/api/volunteers/register', formData);
+            
+            if (response) {
+                showNotification('✅ Профиль успешно сохранён!');
+                
+                // Vibration feedback if available
+                if (tg.HapticFeedback) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                }
+            }
+        } catch (error) {
+            showNotification('❌ Ошибка при сохранении профиля', true);
+            
+            if (tg.HapticFeedback) {
+                tg.HapticFeedback.notificationOccurred('error');
+            }
+        } finally {
+            // Восстанавливаем кнопку
+            const submitBtn = document.querySelector('#volunteerForm button[type="submit"]');
+            submitBtn.innerHTML = '💾 Сохранить профиль';
+            submitBtn.disabled = false;
+        }
+    });
+    
+    // Загрузка мероприятий
+    async function loadEvents() {
+        try {
+            const response = await fetch('/api/events/', {
+                headers: {
+                    'Authorization': tg.initData || 'test_data'
+                }
+            });
+            
+            const events = await response.json();
+            displayEvents(events);
+        } catch (error) {
+            console.error('Error loading events:', error);
+            document.getElementById('eventsList').innerHTML = 
+                '<p class="text-danger">❌ Ошибка загрузки мероприятий</p>';
+        }
+    }
+    
+    // Отображение мероприятий
+    function displayEvents(events) {
+        const eventsList = document.getElementById('eventsList');
+        
+        if (events.length === 0) {
+            eventsList.innerHTML = '<p class="text-muted">📭 Пока нет доступных мероприятий</p>';
+            return;
+        }
+        
+        eventsList.innerHTML = events.map(event => `
+            <div class="telegram-card" style="margin-bottom: 12px; border-left: 4px solid var(--tg-theme-button-color);">
+                <h6><strong>${event.title}</strong></h6>
+                <p class="mb-2">${event.description || 'Без описания'}</p>
+                
+                <div class="row text-small">
+                    <div class="col-6">
+                        <small>📍 ${event.city || 'Не указан'}</small>
+                    </div>
+                    <div class="col-6 text-end">
+                        <small>💰 ${event.payment || 0} ₽</small>
+                    </div>
+                </div>
+                
+                ${event.date ? `<small class="text-muted">📅 ${new Date(event.date).toLocaleDateString('ru-RU')}</small><br>` : ''}
+                ${event.work_type ? `<small class="text-muted">🏷️ ${event.work_type}</small><br>` : ''}
+                
+                <button class="telegram-button" style="margin-top: 10px; padding: 8px 16px; font-size: 14px;" 
+                        onclick="applyToEvent(${event.id}, '${event.title}')">
+                    ✋ Откликнуться
+                </button>
+            </div>
+        `).join('');
+    }
+    
+    // Подача заявки на мероприятие
+    async function applyToEvent(eventId, eventTitle) {
+        try {
+            const applicationData = {
+                event_id: eventId,
+                volunteer_id: currentUser.id
+            };
+            
+            const response = await sendToAPI('/api/volunteers/apply', applicationData);
+            
+            if (response) {
+                showNotification(`✅ Заявка на "${eventTitle}" подана!`);
+                
+                if (tg.HapticFeedback) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                }
+                
+                // Обновляем список заявок
+                loadApplications();
+            }
+        } catch (error) {
+            if (error.message.includes('400')) {
+                showNotification('⚠️ Вы уже подали заявку на это мероприятие');
+            } else {
+                showNotification('❌ Ошибка при подаче заявки', true);
+            }
+            
+            if (tg.HapticFeedback) {
+                tg.HapticFeedback.notificationOccurred('error');
+            }
+        }
+    }
+    
+    // Загрузка заявок пользователя
+    async function loadApplications() {
+        try {
+            const response = await fetch(`/api/volunteers/applications/${currentUser.id}`, {
+                headers: {
+                    'Authorization': tg.initData || 'test_data'
+                }
+            });
+            
+            const applications = await response.json();
+            displayApplications(applications);
+        } catch (error) {
+            console.error('Error loading applications:', error);
+        }
+    }
+    
+    // Отображение заявок
+    function displayApplications(applications) {
+        const applicationsList = document.getElementById('applicationsList');
+        
+        if (applications.length === 0) {
+            applicationsList.innerHTML = '<p class="text-muted">📝 У вас пока нет заявок</p>';
+            return;
+        }
+        
+        applicationsList.innerHTML = applications.map(app => {
+            const statusEmoji = {
+                'pending': '⏳',
+                'approved': '✅',
+                'rejected': '❌'
+            };
+            
+            const statusText = {
+                'pending': 'На рассмотрении',
+                'approved': 'Одобрена',
+                'rejected': 'Отклонена'
+            };
+            
+            return `
+                <div class="telegram-card" style="margin-bottom: 8px;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Заявка #${app.id}</strong>
+                            <br><small class="text-muted">${new Date(app.applied_at).toLocaleDateString('ru-RU')}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge" style="background: var(--tg-theme-button-color);">
+                                ${statusEmoji[app.status]} ${statusText[app.status]}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // Инициализация при загрузке страницы
+    document.addEventListener('DOMContentLoaded', function() {
+        // Ждем инициализации Telegram
+        setTimeout(initVolunteerPage, 500);
+    });
+</script>
+{% endblock %}

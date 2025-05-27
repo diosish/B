@@ -13,6 +13,7 @@ class UserCreate(BaseModel):
     org_type: Optional[str] = None
     org_name: Optional[str] = None
     inn: Optional[str] = None
+    description: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -23,6 +24,16 @@ class UserResponse(BaseModel):
     role: str
     rating: Optional[float]
     created_at: datetime
+
+    # Поля волонтёра
+    volunteer_type: Optional[str] = None
+    skills: Optional[str] = None
+
+    # Поля организатора
+    org_type: Optional[str] = None
+    org_name: Optional[str] = None
+    inn: Optional[str] = None
+    description: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -57,7 +68,7 @@ class EventResponse(BaseModel):
 
 class ApplicationCreate(BaseModel):
     event_id: int
-    volunteer_id: int
+    volunteer_id: Optional[int] = None  # Будет заполнено автоматически
 
 
 class ApplicationResponse(BaseModel):
