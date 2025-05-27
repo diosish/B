@@ -81,18 +81,6 @@ async def notify_new_application(organizer_telegram_id: int, event_title: str, v
     text = f"""
 📋 <b>Новая заявка!</b>
 
-Волонтёр <b>{volunteer_name}</b> подал заявку на ваше мероприятие <b>'{event_title}'</b>
-
-Откройте приложение, чтобы рассмотреть заявку.
-    """
-    await bot.send_message(organizer_telegram_id, text)
-
-
-async def notify_new_application(organizer_telegram_id: int, event_title: str, volunteer_name: str):
-    """Уведомление организатору о новой заявке"""
-    text = f"""
-📋 <b>Новая заявка!</b>
-
 Волонтёр <b>{volunteer_name}</b> подал заявку на ваше мероприятие:
 📅 <b>"{event_title}"</b>
 

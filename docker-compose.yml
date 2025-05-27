@@ -27,15 +27,20 @@ services:
     environment:
       DATABASE_URL: postgresql://volunteer_user:your_password@db:5432/volunteer_db
       BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
-      WEBAPP_URL: https://4512-146-70-139-6.ngrok-free.app
-      SECRET_KEY: your_secret_key_here
+      WEBAPP_URL: https://4512-146-70-139-6.ngrok-free.app/
+      SECRET_KEY: SECRET_KEY
       ENVIRONMENT: development
     volumes:
       - .:/app
     command: >
-      sh -c "sleep 10 && 
-             python -c 'from app.database import engine; from app.models import Base; Base.metadata.create_all(bind=engine)' &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+      sh -c "
+        echo 'Waiting for DB...' &&
+        sleep 5 &&
+        echo 'Running migrations...' &&
+        alembic upgrade head &&
+        echo 'Starting application...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
 
   bot:
     build: .
@@ -45,11 +50,16 @@ services:
     environment:
       DATABASE_URL: postgresql://volunteer_user:your_password@db:5432/volunteer_db
       BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
-      WEBAPP_URL: https://4512-146-70-139-6.ngrok-free.app
+      WEBAPP_URL: https://4512-146-70-139-6.ngrok-free.app/
       ENVIRONMENT: development
     volumes:
       - .:/app
-    command: python run_bot.py
+    command: >
+      sh -c "
+        echo 'Waiting for app service...' &&
+        sleep 15 &&
+        python run_bot.py
+      "
     restart: unless-stopped
 
 volumes:

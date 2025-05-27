@@ -2,10 +2,11 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Заявки на мероприятие</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои заявки</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/navigation.css" rel="stylesheet">
     <style>
         body {
             background: var(--tg-theme-bg-color, #ffffff);
@@ -13,11 +14,12 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             margin: 0;
             padding: 10px;
+            padding-bottom: 80px;
         }
 
         .telegram-card {
-            background: var(--tg-theme-bg-color);
-            border: 1px solid var(--tg-theme-hint-color);
+            background: var(--tg-theme-bg-color, #ffffff);
+            border: 1px solid var(--tg-theme-hint-color, #999999);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 12px;
@@ -26,7 +28,7 @@
 
         .application-card {
             border-left: 4px solid #6c757d;
-            margin-bottom: 15px;
+            position: relative;
         }
 
         .application-card.pending {
@@ -41,30 +43,13 @@
             border-left-color: #dc3545;
         }
 
-        .btn-approve {
-            background: #28a745;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 8px 16px;
-            margin: 2px;
-            font-size: 14px;
-        }
-
-        .btn-reject {
-            background: #dc3545;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 8px 16px;
-            margin: 2px;
-            font-size: 14px;
-        }
-
         .status-badge {
+            position: absolute;
+            top: 12px;
+            right: 12px;
             padding: 4px 8px;
             border-radius: 12px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: bold;
         }
 
@@ -82,168 +67,287 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        .filter-tabs {
+            display: flex;
+            margin-bottom: 16px;
+            background: var(--tg-theme-secondary-bg-color, #f8f9fa);
+            border-radius: 8px;
+            padding: 4px;
+        }
+
+        .filter-tab {
+            flex: 1;
+            padding: 8px 12px;
+            text-align: center;
+            border: none;
+            background: none;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            color: var(--tg-theme-text-color, #000);
+        }
+
+        .filter-tab.active {
+            background: var(--tg-theme-button-color, #2678b6);
+            color: var(--tg-theme-button-text-color, #ffffff);
+        }
+
+        .no-applications {
+            text-align: center;
+            padding: 40px;
+            color: var(--tg-theme-hint-color, #666);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .event-info {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #666);
+            margin: 8px 0;
+        }
+
+        .event-info-item {
+            margin: 4px 0;
+        }
+
+        .applied-date {
+            font-size: 11px;
+            color: var(--tg-theme-hint-color, #999);
+            margin-top: 8px;
+        }
+
+        .contact-info {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            border-radius: 6px;
+            padding: 8px;
+            margin-top: 8px;
+            font-size: 13px;
+        }
     </style>
 </head>
 <body>
-    <div class="container-fluid">
+    <div class="container">
         <div class="telegram-card">
-            <h3>📋 Заявки на мероприятие</h3>
-            <div id="eventInfo">
-                <p class="text-muted">Загрузка информации о мероприятии...</p>
+            <h3>📋 Мои заявки</h3>
+
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterApplications('all')">
+                    Все
+                </button>
+                <button class="filter-tab" onclick="filterApplications('pending')">
+                    ⏳ На рассмотрении
+                </button>
+                <button class="filter-tab" onclick="filterApplications('approved')">
+                    ✅ Одобрены
+                </button>
+                <button class="filter-tab" onclick="filterApplications('rejected')">
+                    ❌ Отклонены
+                </button>
             </div>
         </div>
 
         <div id="applicationsList">
-            <div class="text-center">
+            <div class="loading">
                 <div class="spinner-border" role="status"></div>
                 <p>Загружаем заявки...</p>
             </div>
         </div>
     </div>
 
-    <script>
-        let tg = window.Telegram.WebApp;
-        let currentUser = null;
-        let eventId = null;
+    <div class="navigation-menu">
+        <button class="nav-btn" onclick="nav.goToVolunteerProfile()">👤 Профиль</button>
+        <button class="nav-btn" onclick="nav.goToVolunteerEvents()">📅 Мероприятия</button>
+        <button class="nav-btn active" onclick="nav.goToVolunteerApplications()">📋 Заявки</button>
+    </div>
 
-        // Инициализация
-        function init() {
+    <script src="/static/js/auth.js"></script>
+    <script src="/static/js/navigation.js"></script>
+    <script>
+        let tg = window.Telegram?.WebApp;
+        let currentUser = null;
+        let allApplications = [];
+        let currentFilter = 'all';
+
+        async function init() {
+            console.log('📋 Initializing applications page...');
+
             if (tg) {
                 tg.ready();
                 tg.expand();
-
                 currentUser = tg.initDataUnsafe?.user || {
                     id: 123456789,
-                    first_name: 'Test Organizer'
+                    first_name: 'Test',
+                    last_name: 'User'
                 };
 
-                // Получаем ID мероприятия из URL параметров
-                const urlParams = new URLSearchParams(window.location.search);
-                eventId = urlParams.get('event_id');
-
-                if (eventId) {
-                    loadApplications();
-                } else {
-                    document.getElementById('applicationsList').innerHTML =
-                        '<div class="alert alert-danger">Не указан ID мероприятия</div>';
-                }
-
-                // Настройка главной кнопки
-                tg.MainButton.setText('🏠 Назад');
+                tg.MainButton.setText('🏠 Главная');
                 tg.MainButton.show();
                 tg.MainButton.onClick(() => {
-                    window.history.back();
+                    window.location.href = '/';
                 });
+            } else {
+                currentUser = {
+                    id: 123456789,
+                    first_name: 'Test',
+                    last_name: 'User'
+                };
             }
+
+            await loadApplications();
         }
 
-        // Загружаем заявки
+        function getAuthHeaders() {
+            const headers = {};
+            if (tg && tg.initData) {
+                headers['Authorization'] = tg.initData;
+            } else {
+                headers['Authorization'] = 'test_data';
+            }
+            return headers;
+        }
+
         async function loadApplications() {
             try {
-                const response = await fetch(`/api/applications/event/${eventId}?organizer_telegram_id=${currentUser.id}`);
-                const applications = await response.json();
+                console.log('📡 Loading applications...');
 
-                displayApplications(applications);
+                const response = await fetch(`/api/applications/volunteer/${currentUser.id}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    allApplications = await response.json();
+                    console.log('✅ Applications loaded:', allApplications.length);
+                    displayApplications(allApplications);
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
             } catch (error) {
-                console.error('Error loading applications:', error);
-                document.getElementById('applicationsList').innerHTML =
-                    '<div class="alert alert-danger">❌ Ошибка загрузки заявок</div>';
+                console.error('❌ Error loading applications:', error);
+                document.getElementById('applicationsList').innerHTML = `
+                    <div class="telegram-card">
+                        <div class="no-applications">
+                            <p>❌ Ошибка загрузки заявок</p>
+                            <button class="btn btn-primary" onclick="loadApplications()">
+                                🔄 Попробовать снова
+                            </button>
+                        </div>
+                    </div>
+                `;
             }
         }
 
-        // Отображение заявок
         function displayApplications(applications) {
             const container = document.getElementById('applicationsList');
 
             if (applications.length === 0) {
                 container.innerHTML = `
                     <div class="telegram-card">
-                        <p class="text-muted text-center">📭 Пока нет заявок на это мероприятие</p>
+                        <div class="no-applications">
+                            <h5>📭 ${currentFilter === 'all' ? 'У вас пока нет заявок' : 'Нет заявок в этой категории'}</h5>
+                            <p>Найдите интересные мероприятия и подайте заявку!</p>
+                            <button class="btn btn-primary" onclick="nav.goToVolunteerEvents()">
+                                📅 Найти мероприятия
+                            </button>
+                        </div>
                     </div>
                 `;
                 return;
             }
 
-            const statusLabels = {
-                'pending': '⏳ На рассмотрении',
-                'approved': '✅ Одобрена',
-                'rejected': '❌ Отклонена'
+            const statusEmoji = {
+                'pending': '⏳',
+                'approved': '✅',
+                'rejected': '❌'
             };
 
-            container.innerHTML = applications.map(app => `
-                <div class="telegram-card application-card ${app.status}">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <div>
-                            <h6 class="mb-1"><strong>${app.volunteer.full_name}</strong></h6>
-                            <small class="text-muted">Подана: ${new Date(app.applied_at).toLocaleDateString('ru-RU')}</small>
-                        </div>
-                        <span class="status-badge status-${app.status}">
-                            ${statusLabels[app.status]}
+            const statusText = {
+                'pending': 'На рассмотрении',
+                'approved': 'Одобрена',
+                'rejected': 'Отклонена'
+            };
+
+            container.innerHTML = applications.map(app => {
+                const event = app.event;
+                const statusClass = `status-${app.status}`;
+
+                // Показываем контактную информацию только для одобренных заявок
+                const showContact = app.status === 'approved' && event.description && event.description.includes('Контакты:');
+                let contactInfo = '';
+
+                if (showContact) {
+                    const contactMatch = event.description.match(/📞 Контакты:\s*([^\n]+)/);
+                    if (contactMatch) {
+                        contactInfo = `
+                            <div class="contact-info">
+                                <strong>📞 Контакты организатора:</strong><br>
+                                ${contactMatch[1]}
+                            </div>
+                        `;
+                    }
+                }
+
+                return `
+                    <div class="telegram-card application-card ${app.status}" data-status="${app.status}">
+                        <span class="status-badge ${statusClass}">
+                            ${statusEmoji[app.status]} ${statusText[app.status]}
                         </span>
-                    </div>
 
-                    ${app.volunteer.skills ? `
-                        <div class="mb-2">
-                            <small><strong>Навыки:</strong></small>
-                            <p style="font-size: 14px; margin-bottom: 8px;">${app.volunteer.skills}</p>
+                        <h6><strong>${event.title}</strong></h6>
+
+                        <div class="event-info">
+                            <div class="event-info-item">📍 ${event.city || 'Не указан'}</div>
+                            <div class="event-info-item">💰 ${event.payment || 0} ₽</div>
+                            ${event.date ? `<div class="event-info-item">📅 ${new Date(event.date).toLocaleDateString('ru-RU')}</div>` : ''}
+                            ${event.work_type ? `<div class="event-info-item">🏷️ ${event.work_type}</div>` : ''}
+                            ${event.duration ? `<div class="event-info-item">⏰ ${event.duration} ч</div>` : ''}
                         </div>
-                    ` : ''}
 
-                    <div class="mb-2">
-                        <small class="text-muted">
-                            📍 ${app.volunteer.city || 'Город не указан'} •
-                            ⭐ Рейтинг: ${app.volunteer.rating || 0}
-                            ${app.volunteer.volunteer_type ? ` • 🏷️ ${app.volunteer.volunteer_type}` : ''}
-                        </small>
-                    </div>
+                        ${event.description ? `
+                            <p style="font-size: 13px; margin: 8px 0; color: var(--tg-theme-hint-color, #666);">
+                                ${event.description.substring(0, 150)}${event.description.length > 150 ? '...' : ''}
+                            </p>
+                        ` : ''}
 
-                    ${app.status === 'pending' ? `
-                        <div class="d-flex gap-2 mt-2">
-                            <button class="btn-approve" onclick="updateStatus(${app.id}, 'approved')">
-                                ✅ Одобрить
-                            </button>
-                            <button class="btn-reject" onclick="updateStatus(${app.id}, 'rejected')">
-                                ❌ Отклонить
-                            </button>
+                        ${contactInfo}
+
+                        ${app.status === 'rejected' ? `
+                            <div style="margin-top: 8px;">
+                                <button class="btn btn-sm btn-outline-primary" onclick="nav.goToVolunteerEvents()">
+                                    🔍 Найти другие мероприятия
+                                </button>
+                            </div>
+                        ` : ''}
+
+                        <div class="applied-date">
+                            Заявка подана: ${new Date(app.applied_at).toLocaleDateString('ru-RU')}
                         </div>
-                    ` : ''}
-                </div>
-            `).join('');
+                    </div>
+                `;
+            }).join('');
         }
 
-        // Обновление статуса заявки
-        async function updateStatus(applicationId, status) {
-            try {
-                const response = await fetch(`/api/applications/${applicationId}/status?status=${status}&organizer_telegram_id=${currentUser.id}`, {
-                    method: 'PUT'
-                });
+        function filterApplications(status) {
+            currentFilter = status;
 
-                if (response.ok) {
-                    const statusText = status === 'approved' ? 'одобрена' : 'отклонена';
+            // Обновляем активную вкладку
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
 
-                    if (tg.showAlert) {
-                        tg.showAlert(`✅ Заявка ${statusText}!`);
-                    }
-
-                    if (tg.HapticFeedback) {
-                        tg.HapticFeedback.notificationOccurred('success');
-                    }
-
-                    // Перезагружаем список
-                    setTimeout(loadApplications, 1000);
-                } else {
-                    throw new Error('Failed to update status');
-                }
-            } catch (error) {
-                console.error('Error updating status:', error);
-
-                if (tg.showAlert) {
-                    tg.showAlert('❌ Ошибка при обновлении статуса');
-                }
+            // Фильтруем заявки
+            let filteredApplications = allApplications;
+            if (status !== 'all') {
+                filteredApplications = allApplications.filter(app => app.status === status);
             }
+
+            displayApplications(filteredApplications);
         }
 
-        // Инициализация при загрузке
         document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>

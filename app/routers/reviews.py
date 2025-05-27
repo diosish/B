@@ -1,39 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import List
-from pydantic import BaseModel
-
-from .. import crud, models, schemas
-from ..database import get_db
-from ..auth import get_telegram_user_flexible
-
-router = APIRouter()
-
-
-class ReviewCreate(BaseModel):
-    volunteer_id: int
-    event_id: int
-    rating: int  # 1-5
-    comment: str
-
-
-class ReviewResponse(BaseModel):
-    id: int
-    event_id: int
-    volunteer_id: int
-    organizer_id: int
-    rating: int
-    comment: str
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from sqlalchemy import func
 from typing import List
 from pydantic import BaseModel
 
@@ -48,7 +14,7 @@ router = APIRouter()
 class ReviewCreate(BaseModel):
     volunteer_id: int
     event_id: int
-    rating: int  # 1-5
+    rating: int
     comment: str
 
 
@@ -60,6 +26,8 @@ class ReviewResponse(BaseModel):
     rating: int
     comment: str
     created_at: str
+    volunteer_name: str
+    event_title: str
 
     class Config:
         from_attributes = True
@@ -67,106 +35,91 @@ class ReviewResponse(BaseModel):
 
 @router.post("/", response_model=ReviewResponse)
 async def create_review(
-        review: ReviewCreate,
+        review_data: ReviewCreate,
         db: Session = Depends(get_db),
         telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
-    """Создание отзыва об волонтёре (только для организатора)"""
+    """Создание отзыва о волонтёре"""
+    print(f"📝 Creating review from user {telegram_user['id']}")
 
-    print(f"⭐ Creating review for volunteer {review.volunteer_id} by user {telegram_user['id']}")
-
-    # Проверяем, что пользователь - организатор
+    # Получаем организатора
     organizer = crud.get_user_by_telegram_id(db, telegram_user['id'])
     if not organizer or organizer.role != "organizer":
-        raise HTTPException(status_code=403, detail="Only organizers can create reviews")
+        raise HTTPException(status_code=403, detail="Only organizers can leave reviews")
 
-    # Проверяем, что мероприятие существует и принадлежит организатору
-    event = crud.get_event_by_id(db, review.event_id)
+    # Проверяем, что это мероприятие организатора
+    event = crud.get_event_by_id(db, review_data.event_id)
     if not event or event.organizer_id != organizer.id:
-        raise HTTPException(status_code=403, detail="Event not found or access denied")
+        raise HTTPException(status_code=403, detail="You can only review volunteers from your events")
 
     # Проверяем, что мероприятие завершено
     if event.status != "completed":
-        raise HTTPException(status_code=400, detail="Can only review completed events")
+        raise HTTPException(status_code=400, detail="You can only review volunteers after event completion")
 
-    # Проверяем, что волонтёр участвовал в мероприятии (заявка была одобрена)
+    # Проверяем, что волонтёр был одобрен на это мероприятие
     application = db.query(models.Application).filter(
-        models.Application.event_id == review.event_id,
-        models.Application.volunteer_id == review.volunteer_id,
+        models.Application.event_id == review_data.event_id,
+        models.Application.volunteer_id == review_data.volunteer_id,
         models.Application.status == "approved"
     ).first()
 
     if not application:
-        raise HTTPException(
-            status_code=400,
-            detail="Can only review volunteers who were approved for this event"
-        )
+        raise HTTPException(status_code=400, detail="Volunteer was not approved for this event")
 
-    # Проверяем, не оставлял ли уже отзыв
-    existing_review = db.query(models.Review).filter(
-        models.Review.event_id == review.event_id,
-        models.Review.volunteer_id == review.volunteer_id,
-        models.Review.organizer_id == organizer.id
-    ).first()
-
+    # Проверяем, нет ли уже отзыва
+    existing_review = crud.check_existing_review(
+        db, review_data.event_id, review_data.volunteer_id, organizer.id
+    )
     if existing_review:
         raise HTTPException(status_code=400, detail="Review already exists")
 
-    # Проверяем рейтинг
-    if review.rating < 1 or review.rating > 5:
+    # Валидация рейтинга
+    if not 1 <= review_data.rating <= 5:
         raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
 
-    # Получаем данные волонтёра
-    volunteer = crud.get_user_by_id(db, review.volunteer_id)
-    if not volunteer:
-        raise HTTPException(status_code=404, detail="Volunteer not found")
-
-    # Создаём отзыв
-    db_review = models.Review(
-        event_id=review.event_id,
-        volunteer_id=review.volunteer_id,
-        organizer_id=organizer.id,
-        rating=review.rating,
-        comment=review.comment
-    )
-
-    db.add(db_review)
-    db.commit()
-    db.refresh(db_review)
-
-    # Обновляем рейтинг волонтёра
-    update_volunteer_rating(db, review.volunteer_id)
-
-    # Отправляем уведомление волонтёру
+    # Создаем отзыв
     try:
-        await notify_review_received(
-            volunteer.telegram_id,
-            event.title,
-            review.rating,
-            organizer.full_name
+        review = crud.create_review(
+            db,
+            event_id=review_data.event_id,
+            volunteer_id=review_data.volunteer_id,
+            organizer_id=organizer.id,
+            rating=review_data.rating,
+            comment=review_data.comment
         )
-        print(f"📱 Review notification sent to volunteer {volunteer.telegram_id}")
+
+        # Получаем данные волонтёра
+        volunteer = crud.get_user_by_id(db, review_data.volunteer_id)
+
+        # Отправляем уведомление волонтёру
+        if volunteer:
+            try:
+                await notify_review_received(
+                    volunteer.telegram_id,
+                    event.title,
+                    review_data.rating,
+                    organizer.full_name
+                )
+                print(f"📱 Notification sent to volunteer {volunteer.telegram_id}")
+            except Exception as e:
+                print(f"❌ Failed to send notification: {e}")
+
+        # Формируем ответ
+        return {
+            "id": review.id,
+            "event_id": review.event_id,
+            "volunteer_id": review.volunteer_id,
+            "organizer_id": review.organizer_id,
+            "rating": review.rating,
+            "comment": review.comment,
+            "created_at": review.created_at.isoformat(),
+            "volunteer_name": volunteer.full_name if volunteer else "Unknown",
+            "event_title": event.title
+        }
+
     except Exception as e:
-        print(f"❌ Failed to send review notification: {e}")
-
-    print(f"✅ Review created: {db_review.id}")
-    return db_review
-
-
-@router.get("/volunteer/{volunteer_id}", response_model=List[ReviewResponse])
-def get_volunteer_reviews(
-        volunteer_id: int,
-        skip: int = Query(0),
-        limit: int = Query(10),
-        db: Session = Depends(get_db)
-):
-    """Получение отзывов о волонтёре"""
-
-    reviews = db.query(models.Review).filter(
-        models.Review.volunteer_id == volunteer_id
-    ).order_by(models.Review.created_at.desc()).offset(skip).limit(limit).all()
-
-    return reviews
+        print(f"❌ Error creating review: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/event/{event_id}/reviewable")
@@ -175,122 +128,129 @@ def get_reviewable_volunteers(
         db: Session = Depends(get_db),
         telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
-    """Получение списка волонтёров, которым можно оставить отзыв"""
+    """Получение списка волонтёров для оставления отзывов"""
+    print(f"📋 Getting reviewable volunteers for event {event_id}")
 
-    # Проверяем, что пользователь - организатор этого мероприятия
+    # Получаем организатора
     organizer = crud.get_user_by_telegram_id(db, telegram_user['id'])
     if not organizer:
         raise HTTPException(status_code=404, detail="Organizer not found")
 
+    # Проверяем, что это мероприятие организатора
     event = crud.get_event_by_id(db, event_id)
     if not event or event.organizer_id != organizer.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
     # Проверяем, что мероприятие завершено
     if event.status != "completed":
-        raise HTTPException(status_code=400, detail="Event is not completed")
+        raise HTTPException(status_code=400, detail="Event must be completed to leave reviews")
 
-    # Получаем одобренных волонтёров без отзывов
-    approved_volunteers = db.query(models.Application).filter(
-        models.Application.event_id == event_id,
-        models.Application.status == "approved"
-    ).all()
-
-    reviewable = []
-    for application in approved_volunteers:
-        # Проверяем, есть ли уже отзыв
-        existing_review = db.query(models.Review).filter(
-            models.Review.event_id == event_id,
-            models.Review.volunteer_id == application.volunteer_id,
-            models.Review.organizer_id == organizer.id
-        ).first()
-
-        if not existing_review:
-            volunteer = crud.get_user_by_id(db, application.volunteer_id)
-            if volunteer:
-                reviewable.append({
-                    "volunteer": volunteer,
-                    "application": application
-                })
-
-    return reviewable
+    # Получаем волонтёров без отзывов
+    try:
+        reviewable = crud.get_reviewable_volunteers(db, event_id, organizer.id)
+        return reviewable
+    except Exception as e:
+        print(f"❌ Error getting reviewable volunteers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/stats/{volunteer_id}")
-def get_volunteer_rating_stats(volunteer_id: int, db: Session = Depends(get_db)):
-    """Получение статистики рейтинга волонтёра"""
+@router.get("/volunteer/{volunteer_id}", response_model=List[ReviewResponse])
+def get_volunteer_reviews(
+        volunteer_id: int,
+        db: Session = Depends(get_db)
+):
+    """Получение всех отзывов о волонтёре"""
+    # Находим волонтёра по telegram_id
+    if volunteer_id > 1000000000:  # Это telegram_id
+        user = crud.get_user_by_telegram_id(db, volunteer_id)
+        if user:
+            volunteer_id = user.id
 
-    volunteer = crud.get_user_by_id(db, volunteer_id)
-    if not volunteer:
-        raise HTTPException(status_code=404, detail="Volunteer not found")
+    reviews = crud.get_volunteer_reviews(db, volunteer_id)
 
-    # Общая статистика
-    stats = db.query(
-        func.count(models.Review.id).label('total_reviews'),
-        func.avg(models.Review.rating).label('average_rating'),
-        func.max(models.Review.rating).label('max_rating'),
-        func.min(models.Review.rating).label('min_rating')
-    ).filter(models.Review.volunteer_id == volunteer_id).first()
+    # Обогащаем данные
+    result = []
+    for review in reviews:
+        event = crud.get_event_by_id(db, review.event_id)
+        organizer = crud.get_user_by_id(db, review.organizer_id)
 
-    # Распределение по рейтингам
-    rating_distribution = db.query(
-        models.Review.rating,
-        func.count(models.Review.id).label('count')
-    ).filter(
-        models.Review.volunteer_id == volunteer_id
-    ).group_by(models.Review.rating).all()
+        result.append({
+            "id": review.id,
+            "event_id": review.event_id,
+            "volunteer_id": review.volunteer_id,
+            "organizer_id": review.organizer_id,
+            "rating": review.rating,
+            "comment": review.comment,
+            "created_at": review.created_at.isoformat(),
+            "volunteer_name": "",  # Не нужно для отзывов о волонтёре
+            "event_title": event.title if event else "Unknown event",
+            "organizer_name": organizer.full_name if organizer else "Unknown"
+        })
 
-    return {
-        "volunteer_id": volunteer_id,
-        "total_reviews": stats.total_reviews or 0,
-        "average_rating": round(float(stats.average_rating or 0), 2),
-        "max_rating": stats.max_rating or 0,
-        "min_rating": stats.min_rating or 0,
-        "current_rating": volunteer.rating or 0,
-        "rating_distribution": {str(rating): count for rating, count in rating_distribution}
-    }
-
-
-def update_volunteer_rating(db: Session, volunteer_id: int):
-    """Обновление рейтинга волонтёра на основе отзывов"""
-
-    average_rating = db.query(func.avg(models.Review.rating)).filter(
-        models.Review.volunteer_id == volunteer_id
-    ).scalar()
-
-    if average_rating:
-        volunteer = crud.get_user_by_id(db, volunteer_id)
-        if volunteer:
-            volunteer.rating = round(float(average_rating), 2)
-            db.commit()
-            print(f"✅ Updated volunteer {volunteer_id} rating to {volunteer.rating}")
+    return result
 
 
-@router.delete("/{review_id}")
-def delete_review(
-        review_id: int,
+@router.get("/my", response_model=List[ReviewResponse])
+def get_my_reviews(
         db: Session = Depends(get_db),
         telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
-    """Удаление отзыва (только автор может удалить)"""
+    """Получение отзывов текущего пользователя"""
+    user = crud.get_user_by_telegram_id(db, telegram_user['id'])
+    if not user:
+        return []
 
-    organizer = crud.get_user_by_telegram_id(db, telegram_user['id'])
-    if not organizer:
-        raise HTTPException(status_code=404, detail="User not found")
+    if user.role == "volunteer":
+        return get_volunteer_reviews(user.id, db)
+    elif user.role == "organizer":
+        # Возвращаем отзывы, оставленные организатором
+        reviews = crud.get_organizer_reviews(db, user.id)
 
-    review = db.query(models.Review).filter(models.Review.id == review_id).first()
-    if not review:
-        raise HTTPException(status_code=404, detail="Review not found")
+        result = []
+        for review in reviews:
+            event = crud.get_event_by_id(db, review.event_id)
+            volunteer = crud.get_user_by_id(db, review.volunteer_id)
 
-    if review.organizer_id != organizer.id:
-        raise HTTPException(status_code=403, detail="Access denied")
+            result.append({
+                "id": review.id,
+                "event_id": review.event_id,
+                "volunteer_id": review.volunteer_id,
+                "organizer_id": review.organizer_id,
+                "rating": review.rating,
+                "comment": review.comment,
+                "created_at": review.created_at.isoformat(),
+                "volunteer_name": volunteer.full_name if volunteer else "Unknown",
+                "event_title": event.title if event else "Unknown event"
+            })
 
-    volunteer_id = review.volunteer_id
+        return result
 
-    db.delete(review)
-    db.commit()
+    return []
 
-    # Обновляем рейтинг волонтёра
-    update_volunteer_rating(db, volunteer_id)
 
-    return {"message": "Review deleted successfully"}
+@router.get("/event/{event_id}", response_model=List[ReviewResponse])
+def get_event_reviews(
+        event_id: int,
+        db: Session = Depends(get_db)
+):
+    """Получение всех отзывов по мероприятию"""
+    reviews = crud.get_event_reviews(db, event_id)
+
+    result = []
+    for review in reviews:
+        volunteer = crud.get_user_by_id(db, review.volunteer_id)
+        event = crud.get_event_by_id(db, review.event_id)
+
+        result.append({
+            "id": review.id,
+            "event_id": review.event_id,
+            "volunteer_id": review.volunteer_id,
+            "organizer_id": review.organizer_id,
+            "rating": review.rating,
+            "comment": review.comment,
+            "created_at": review.created_at.isoformat(),
+            "volunteer_name": volunteer.full_name if volunteer else "Unknown",
+            "event_title": event.title if event else "Unknown event"
+        })
+
+    return result

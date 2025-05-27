@@ -22,7 +22,7 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 def get_url():
-    return os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost:5432/volunteer_db")
+    return os.getenv("DATABASE_URL", "postgresql://volunteer_user:your_password@db:5432/volunteer_db")
 
 def run_migrations_offline() -> None:
     url = get_url()
