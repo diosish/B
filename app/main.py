@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from .database import engine, SessionLocal
 from .models import Base
-from .routers import volunteers, organizers, events, admin, applications
+from .routers import volunteers, organizers, events, admin, applications, auth
 
 load_dotenv()
 
@@ -26,18 +26,59 @@ app.include_router(organizers.router, prefix="/api/organizers", tags=["organizer
 app.include_router(events.router, prefix="/api/events", tags=["events"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(applications.router, prefix="/api/applications", tags=["applications"])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 
+# ===== ОСНОВНЫЕ СТРАНИЦЫ =====
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request):
-    return templates.TemplateResponse("base.html", {"request": request})
+    """Главная страница - проверка авторизации и выбор роли"""
+    return templates.TemplateResponse("index.html", {"request": request})
 
+# ===== СТРАНИЦЫ ВОЛОНТЁРА =====
+@app.get("/volunteer/profile", response_class=HTMLResponse)
+async def volunteer_profile_page(request: Request):
+    """Профиль волонтёра"""
+    return templates.TemplateResponse("volunteer_profile.html", {"request": request})
+
+@app.get("/volunteer/events", response_class=HTMLResponse)
+async def volunteer_events_page(request: Request):
+    """Список мероприятий для волонтёра"""
+    return templates.TemplateResponse("volunteer_events.html", {"request": request})
+
+@app.get("/volunteer/applications", response_class=HTMLResponse)
+async def volunteer_applications_page(request: Request):
+    """Мои заявки волонтёра"""
+    return templates.TemplateResponse("volunteer_applications.html", {"request": request})
+
+# ===== СТРАНИЦЫ ОРГАНИЗАТОРА =====
+@app.get("/organizer/profile", response_class=HTMLResponse)
+async def organizer_profile_page(request: Request):
+    """Профиль организатора"""
+    return templates.TemplateResponse("organizer_profile.html", {"request": request})
+
+@app.get("/organizer/create-event", response_class=HTMLResponse)
+async def create_event_page(request: Request):
+    """Создание мероприятия"""
+    return templates.TemplateResponse("create_event.html", {"request": request})
+
+@app.get("/organizer/events", response_class=HTMLResponse)
+async def organizer_events_page(request: Request):
+    """Мои мероприятия организатора"""
+    return templates.TemplateResponse("organizer_events.html", {"request": request})
+
+@app.get("/organizer/applications", response_class=HTMLResponse)
+async def organizer_applications_page(request: Request):
+    """Заявки на мероприятие"""
+    return templates.TemplateResponse("organizer_applications.html", {"request": request})
+
+# Старые маршруты для совместимости
 @app.get("/volunteer", response_class=HTMLResponse)
-async def volunteer_page(request: Request):
-    return templates.TemplateResponse("volunteer.html", {"request": request})
+async def volunteer_redirect(request: Request):
+    return templates.TemplateResponse("volunteer_redirect.html", {"request": request})
 
 @app.get("/organizer", response_class=HTMLResponse)
-async def organizer_page(request: Request):
-    return templates.TemplateResponse("organizer.html", {"request": request})
+async def organizer_redirect(request: Request):
+    return templates.TemplateResponse("organizer_redirect.html", {"request": request})
 
 if __name__ == "__main__":
     import uvicorn

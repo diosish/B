@@ -1,0 +1,273 @@
+{% extends "base_new.html" %}
+
+{% block title %}Профиль волонтёра{% endblock %}
+
+{% block content %}
+<div class="telegram-card">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>👥 Мой профиль</h3>
+        <button id="editBtn" class="edit-btn" onclick="toggleEditMode()">
+            ✏️ Редактировать
+        </button>
+    </div>
+
+    <div id="profileForm">
+        <div class="profile-field" data-field="full_name">
+            <div class="field-label">Полное имя</div>
+            <div class="field-value" id="fullName">Загружается...</div>
+            <input type="text" class="field-input" id="fullNameInput" style="display: none;">
+        </div>
+
+        <div class="profile-field" data-field="city">
+            <div class="field-label">Город</div>
+            <div class="field-value" id="city">Не указан</div>
+            <input type="text" class="field-input" id="cityInput" style="display: none;" placeholder="Москва">
+        </div>
+
+        <div class="profile-field" data-field="volunteer_type">
+            <div class="field-label">Тип волонтёра</div>
+            <div class="field-value" id="volunteerType">Не указан</div>
+            <select class="field-input" id="volunteerTypeInput" style="display: none;">
+                <option value="студент">🎓 Студент</option>
+                <option value="фрилансер">💻 Фрилансер</option>
+                <option value="профи">⭐ Профи</option>
+            </select>
+        </div>
+
+        <div class="profile-field" data-field="skills">
+            <div class="field-label">Навыки и опыт</div>
+            <div class="field-value" id="skills">Не указаны</div>
+            <textarea class="field-input" id="skillsInput" style="display: none;" rows="3" placeholder="Опишите ваши навыки и опыт работы..."></textarea>
+        </div>
+
+        <div class="profile-field">
+            <div class="field-label">Рейтинг</div>
+            <div class="field-value" id="rating">⭐ 0.0</div>
+        </div>
+
+        <div class="profile-field">
+            <div class="field-label">Дата регистрации</div>
+            <div class="field-value" id="createdAt">-</div>
+        </div>
+
+        <div class="edit-controls">
+            <button class="edit-btn" onclick="saveProfile()">
+                💾 Сохранить
+            </button>
+            <button class="edit-btn cancel" onclick="cancelEdit()">
+                ❌ Отмена
+            </button>
+        </div>
+    </div>
+</div>
+
+<div id="loadingProfile" class="loading" style="display: none;">
+    <div class="loading-spinner"></div>
+    <p>Сохраняем профиль...</p>
+</div>
+{% endblock %}
+
+{% block navigation %}
+<div id="volunteerNav"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentProfile = null;
+let isEditMode = false;
+
+async function initVolunteerProfile() {
+    try {
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        if (!window.authManager.currentUser) {
+            window.location.href = '/';
+            return;
+        }
+
+        // Проверяем регистрацию
+        const authResult = await window.authManager.checkRegistration();
+
+        if (authResult.registered) {
+            currentProfile = authResult.user;
+
+            if (currentProfile.role !== 'volunteer') {
+                // Пользователь зарегистрирован как организатор
+                window.location.href = '/organizer/profile';
+                return;
+            }
+
+            displayProfile(currentProfile);
+        } else {
+            // Новый пользователь - создаем базовый профиль
+            await createNewVolunteerProfile();
+        }
+
+        // Настраиваем навигацию
+        setupNavigation();
+
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        showError('Ошибка загрузки профиля');
+    }
+}
+
+async function createNewVolunteerProfile() {
+    const user = window.authManager.currentUser;
+
+    const newProfile = {
+        telegram_id: user.id,
+        full_name: `${user.first_name} ${user.last_name || ''}`.trim(),
+        role: 'volunteer'
+    };
+
+    try {
+        const response = await fetch('/api/volunteers/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(newProfile)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            currentProfile = result;
+            displayProfile(currentProfile);
+
+            // Включаем режим редактирования для нового пользователя
+            toggleEditMode();
+
+            window.authManager.showNotification('👋 Добро пожаловать! Заполните ваш профиль', 'success');
+        } else {
+            throw new Error('Failed to create profile');
+        }
+    } catch (error) {
+        console.error('Error creating profile:', error);
+        showError('Ошибка создания профиля');
+    }
+}
+
+function displayProfile(profile) {
+    document.getElementById('fullName').textContent = profile.full_name || 'Не указано';
+    document.getElementById('city').textContent = profile.city || 'Не указан';
+    document.getElementById('volunteerType').textContent = profile.volunteer_type || 'Не указан';
+    document.getElementById('skills').textContent = profile.skills || 'Не указаны';
+    document.getElementById('rating').textContent = `⭐ ${profile.rating || 0}`;
+
+    if (profile.created_at) {
+        const date = new Date(profile.created_at).toLocaleDateString('ru-RU');
+        document.getElementById('createdAt').textContent = date;
+    }
+
+    // Заполняем поля ввода
+    document.getElementById('fullNameInput').value = profile.full_name || '';
+    document.getElementById('cityInput').value = profile.city || '';
+    document.getElementById('volunteerTypeInput').value = profile.volunteer_type || 'студент';
+    document.getElementById('skillsInput').value = profile.skills || '';
+}
+
+function toggleEditMode() {
+    isEditMode = !isEditMode;
+    const editBtn = document.getElementById('editBtn');
+    const profileForm = document.getElementById('profileForm');
+
+    if (isEditMode) {
+        editBtn.textContent = '👁️ Просмотр';
+        profileForm.classList.add('edit-mode');
+
+        // Показываем поля ввода, скрываем текст
+        document.querySelectorAll('.profile-field').forEach(field => {
+            const value = field.querySelector('.field-value');
+            const input = field.querySelector('.field-input');
+
+            if (value && input) {
+                value.style.display = 'none';
+                input.style.display = 'block';
+            }
+        });
+    } else {
+        editBtn.textContent = '✏️ Редактировать';
+        profileForm.classList.remove('edit-mode');
+
+        // Показываем текст, скрываем поля ввода
+        document.querySelectorAll('.profile-field').forEach(field => {
+            const value = field.querySelector('.field-value');
+            const input = field.querySelector('.field-input');
+
+            if (value && input) {
+                value.style.display = 'block';
+                input.style.display = 'none';
+            }
+        });
+    }
+}
+
+async function saveProfile() {
+    const profileData = {
+        full_name: document.getElementById('fullNameInput').value,
+        city: document.getElementById('cityInput').value,
+        volunteer_type: document.getElementById('volunteerTypeInput').value,
+        skills: document.getElementById('skillsInput').value
+    };
+
+    try {
+        document.getElementById('loadingProfile').style.display = 'block';
+
+        const response = await window.authManager.updateProfile(profileData);
+
+        if (response) {
+            // Обновляем отображение
+            currentProfile = { ...currentProfile, ...profileData };
+            displayProfile(currentProfile);
+            toggleEditMode();
+
+            window.authManager.showNotification('✅ Профиль сохранён!', 'success');
+        }
+
+    } catch (error) {
+        console.error('Error saving profile:', error);
+        window.authManager.showNotification('❌ Ошибка сохранения профиля', 'error');
+    } finally {
+        document.getElementById('loadingProfile').style.display = 'none';
+    }
+}
+
+function cancelEdit() {
+    // Восстанавливаем исходные значения
+    displayProfile(currentProfile);
+    toggleEditMode();
+}
+
+function setupNavigation() {
+    document.getElementById('volunteerNav').innerHTML = window.nav.createVolunteerMenu();
+
+    // Выделяем текущую страницу
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        if (btn.textContent.includes('Профиль')) {
+            btn.classList.add('active');
+        }
+    });
+
+    // Настраиваем главную кнопку
+    window.authManager.setupMainButton('🏠 Главная', () => {
+        window.location.href = '/';
+    });
+}
+
+function showError(message) {
+    document.querySelector('.container').innerHTML = `
+        <div class="telegram-card">
+            <h4>❌ Ошибка</h4>
+            <p>${message}</p>
+            <button class="telegram-button" onclick="location.reload()">
+                🔄 Перезагрузить
+            </button>
+        </div>
+    `;
+}
+
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', initVolunteerProfile);
+</script>
+{% endblock %}

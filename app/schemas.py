@@ -104,3 +104,13 @@ class ApplicationWithEvent(BaseModel):
 
     class Config:
         from_attributes = True
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    city: Optional[str] = None
+    volunteer_type: Optional[str] = None
+    skills: Optional[str] = None
+    org_type: Optional[str] = None
+    org_name: Optional[str] = None
+    inn: Optional[str] = None
+    description: Optional[str] = None
