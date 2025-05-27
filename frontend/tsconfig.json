@@ -1,5 +1,8 @@
 {
-  "files": [],
+  "files": [
+    "src",
+    "src/global.d.ts"
+  ],
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }

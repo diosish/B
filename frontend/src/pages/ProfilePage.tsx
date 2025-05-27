@@ -9,13 +9,12 @@ export default function ProfilePage() {
   const [schema, setSchema] = useState<any>(null)
 
   useEffect(() => {
-    API.get<UserRead>('/users/me')
-      .then(r => {
-        setUser(r.data)
-        return API.get(`/subtypes/${r.data.subtype_id}`)
-      })
-      .then(res => setSchema(res.data.fields_schema))
-      .catch(err => console.error(err))
+    API.get<UserRead>(`/users/me`)
+        .then(r => {
+            setUser(r.data)
+            return API.get<{ fields_schema: any }>(`/subtypes/${r.data.subtype_id}`)
+         })
+         .then(res => setSchema(res.data.fields_schema))
   }, [])
 
   if (!user || !schema) return <div>Загрузка профиля…</div>

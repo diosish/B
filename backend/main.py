@@ -8,6 +8,8 @@ from backend.api.v1 import auth, users, events, notifications
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Volunteer WebApp")
+from fastapi.staticfiles import StaticFiles
+app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="webapp")
 
 # Корневой маршрут для проверки
 @app.get("/")
