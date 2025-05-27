@@ -70,7 +70,7 @@
 
             <form id="organizerForm">
                 <div class="mb-3">
-                    <label class="form-label">Название организации / ФИО</label>
+                    <label class="form-label">Название организации / ФИО *</label>
                     <input type="text" class="form-control" id="orgName" required>
                 </div>
 
@@ -182,7 +182,7 @@
             return headers;
         }
 
-        document.getElementById('organizerForm').addEventListener('submit', async function(e) {
+        async function handleFormSubmit(e) {
             e.preventDefault();
             console.log('📝 Submitting organizer registration...');
 
@@ -192,13 +192,21 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '⏳ Регистрируем...';
 
+            // Проверяем обязательные поля
+            const orgName = document.getElementById('orgName').value.trim();
+            if (!orgName) {
+                showError('Пожалуйста, укажите название организации или ФИО');
+                restoreButton(submitBtn, originalText);
+                return;
+            }
+
             const profileData = {
-                full_name: document.getElementById('orgName').value,
-                city: document.getElementById('city').value,
+                full_name: orgName,
+                city: document.getElementById('city').value.trim() || null,
                 org_type: document.getElementById('orgType').value,
-                org_name: document.getElementById('orgName').value,
-                inn: document.getElementById('inn').value,
-                description: document.getElementById('description').value,
+                org_name: orgName,
+                inn: document.getElementById('inn').value.trim() || null,
+                description: document.getElementById('description').value.trim() || null,
                 role: 'organizer'
             };
 
@@ -217,54 +225,74 @@
                     const result = await response.json();
                     console.log('✅ Registration successful:', result);
 
-                    if (tg && tg.showAlert) {
-                        tg.showAlert('✅ Регистрация успешна!');
-                    } else {
-                        alert('✅ Регистрация успешна!');
-                    }
+                    showSuccess('✅ Регистрация успешна!');
 
                     setTimeout(() => {
                         window.location.href = '/organizer/profile';
-                    }, 1000);
+                    }, 1500);
 
                 } else {
-                    const errorText = await response.text();
-                    console.error('❌ Registration failed:', response.status, errorText);
-
+                    // Обрабатываем ошибки сервера
                     let errorMessage = 'Ошибка регистрации';
+
                     try {
-                        const errorData = JSON.parse(errorText);
-                        errorMessage = errorData.detail || errorMessage;
-                    } catch (e) {
-                        errorMessage = errorText || errorMessage;
+                        const errorData = await response.json();
+                        console.error('❌ Server error:', errorData);
+
+                        if (errorData.detail) {
+                            if (Array.isArray(errorData.detail)) {
+                                // FastAPI validation errors
+                                errorMessage = errorData.detail.map(err =>
+                                    `${err.loc[err.loc.length-1]}: ${err.msg}`
+                                ).join('\n');
+                            } else {
+                                errorMessage = errorData.detail;
+                            }
+                        }
+                    } catch (parseError) {
+                        console.error('Failed to parse error response:', parseError);
+                        errorMessage = `Ошибка сервера (${response.status})`;
                     }
 
-                    if (tg && tg.showAlert) {
-                        tg.showAlert('❌ ' + errorMessage);
-                    } else {
-                        alert('❌ ' + errorMessage);
-                    }
-
-                    // Восстанавливаем кнопку при ошибке
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
+                    showError(errorMessage);
+                    restoreButton(submitBtn, originalText);
                 }
 
             } catch (error) {
                 console.error('💥 Network error:', error);
-
-                if (tg && tg.showAlert) {
-                    tg.showAlert('❌ Ошибка сети: ' + error.message);
-                } else {
-                    alert('❌ Ошибка сети: ' + error.message);
-                }
-
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
+                showError('Ошибка сети: ' + error.message);
+                restoreButton(submitBtn, originalText);
             }
-        });
+        }
 
-        document.addEventListener('DOMContentLoaded', init);
+        function showError(message) {
+            console.error('Error:', message);
+            if (tg && tg.showAlert) {
+                tg.showAlert('❌ ' + message);
+            } else {
+                alert('❌ ' + message);
+            }
+        }
+
+        function showSuccess(message) {
+            console.log('Success:', message);
+            if (tg && tg.showAlert) {
+                tg.showAlert(message);
+            } else {
+                alert(message);
+            }
+        }
+
+        function restoreButton(button, originalText) {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
+
+        // Добавляем обработчик формы
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+            document.getElementById('organizerForm').addEventListener('submit', handleFormSubmit);
+        });
     </script>
 </body>
 </html>

@@ -1,116 +1,98 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Text, ForeignKey, Table
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from datetime import datetime
+import enum
+
+Base = declarative_base()
 
 
-class UserCreate(BaseModel):
-    telegram_id: int
-    full_name: str
-    city: Optional[str] = None
-    role: str = "volunteer"
-    volunteer_type: Optional[str] = None
-    skills: Optional[str] = None
-    org_type: Optional[str] = None
-    org_name: Optional[str] = None
-    inn: Optional[str] = None
-    description: Optional[str] = None
+class UserRole(enum.Enum):
+    VOLUNTEER = "volunteer"
+    ORGANIZER = "organizer"
+    ADMIN = "admin"
 
 
-class UserResponse(BaseModel):
-    id: int
-    telegram_id: int
-    full_name: str
-    city: Optional[str]
-    role: str
-    rating: Optional[float]
-    created_at: datetime
-
-    # Поля волонтёра
-    volunteer_type: Optional[str] = None
-    skills: Optional[str] = None
-
-    # Поля организатора
-    org_type: Optional[str] = None
-    org_name: Optional[str] = None
-    inn: Optional[str] = None
-    description: Optional[str] = None
-
-    class Config:
-        from_attributes = True
+class EventStatus(enum.Enum):
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
 
 
-class EventCreate(BaseModel):
-    title: str
-    description: Optional[str] = None
-    city: Optional[str] = None
-    date: Optional[datetime] = None
-    duration: Optional[int] = None
-    payment: Optional[float] = None
-    work_type: Optional[str] = None
+class ApplicationStatus(enum.Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
 
 
-class EventResponse(BaseModel):
-    id: int
-    title: str
-    description: Optional[str]
-    city: Optional[str]
-    date: Optional[datetime]
-    duration: Optional[int]
-    payment: Optional[float]
-    work_type: Optional[str]
-    status: str
-    organizer_id: int
-    created_at: datetime
+class User(Base):
+    __tablename__ = "users"
 
-    class Config:
-        from_attributes = True
+    id = Column(Integer, primary_key=True)
+    telegram_id = Column(Integer, unique=True, nullable=False)
+    full_name = Column(String(255), nullable=False)
+    city = Column(String(100))
+    role = Column(String(20), default="volunteer")  # Упрощено: строка вместо enum
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
 
+    # Поля волонтёра (если роль = volunteer)
+    volunteer_type = Column(String(50))  # студент, фрилансер, профи
+    skills = Column(Text)  # JSON string для простоты
+    resume = Column(Text)
+    rating = Column(Float, default=0.0)
 
-class ApplicationCreate(BaseModel):
-    event_id: int
-    volunteer_id: Optional[int] = None  # Будет заполнено автоматически
-
-
-class ApplicationResponse(BaseModel):
-    id: int
-    event_id: int
-    volunteer_id: int
-    status: str
-    applied_at: datetime
-
-    class Config:
-        from_attributes = True
+    # Поля организатора (если роль = organizer)
+    org_type = Column(String(50))  # ООО, ИП, физлицо, НКО
+    org_name = Column(String(255))
+    inn = Column(String(20))
+    description = Column(Text)
 
 
-class ApplicationWithVolunteer(BaseModel):
-    id: int
-    event_id: int
-    volunteer_id: int
-    status: str
-    applied_at: datetime
-    volunteer: UserResponse
+class Event(Base):
+    __tablename__ = "events"
 
-    class Config:
-        from_attributes = True
+    id = Column(Integer, primary_key=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text)
+    city = Column(String(100))
+    date = Column(DateTime)
+    duration = Column(Integer)  # часы
+    payment = Column(Float)
+    work_type = Column(String(50))
+    status = Column(String(20), default="active")  # active, completed, cancelled
+    organizer_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    organizer = relationship("User", backref="events")
 
 
-class ApplicationWithEvent(BaseModel):
-    id: int
-    event_id: int
-    volunteer_id: int
-    status: str
-    applied_at: datetime
-    event: EventResponse
+class Application(Base):
+    __tablename__ = "applications"
 
-    class Config:
-        from_attributes = True
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey("events.id"))
+    volunteer_id = Column(Integer, ForeignKey("users.id"))
+    status = Column(String(20), default="pending")  # pending, approved, rejected
+    applied_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-class UserUpdate(BaseModel):
-    full_name: Optional[str] = None
-    city: Optional[str] = None
-    volunteer_type: Optional[str] = None
-    skills: Optional[str] = None
-    org_type: Optional[str] = None
-    org_name: Optional[str] = None
-    inn: Optional[str] = None
-    description: Optional[str] = None
+    event = relationship("Event", backref="applications")
+    volunteer = relationship("User", backref="volunteer_applications")
+
+
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id = Column(Integer, primary_key=True)
+    event_id = Column(Integer, ForeignKey("events.id"))
+    volunteer_id = Column(Integer, ForeignKey("users.id"))
+    organizer_id = Column(Integer, ForeignKey("users.id"))
+    rating = Column(Integer)  # 1-5
+    comment = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    event = relationship("Event", backref="reviews")
+    volunteer = relationship("User", foreign_keys=[volunteer_id], backref="received_reviews")
+    organizer = relationship("User", foreign_keys=[organizer_id], backref="given_reviews")
