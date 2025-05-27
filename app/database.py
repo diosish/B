@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # URL базы данных из переменных окружения
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://volunteer_user:your_password@localhost:5432/volunteer_db")
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://volunteer_user:your_password@db:5432/volunteer_db")
 
 # Создание движка SQLAlchemy
 engine = create_engine(SQLALCHEMY_DATABASE_URL)

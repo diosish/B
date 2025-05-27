@@ -82,6 +82,18 @@ async def handle_start_command(chat_id: int, first_name: str = ""):
     await bot.send_webapp_button(chat_id, welcome_text, WEBAPP_URL)
 
 
+async def handle_volunteer_profile_command(chat_id: int):
+    """Обработка команды /volunteer_profile"""
+    bot = TelegramBot(BOT_TOKEN)
+    await bot.send_webapp_button(chat_id, "👥 Профиль волонтёра", f"{WEBAPP_URL}/volunteer/profile")
+
+
+async def handle_organizer_profile_command(chat_id: int):
+    """Обработка команды /organizer_profile"""
+    bot = TelegramBot(BOT_TOKEN)
+    await bot.send_webapp_button(chat_id, "🏢 Профиль организатора", f"{WEBAPP_URL}/organizer/profile")
+
+
 # Простой polling бот
 async def start_polling():
     bot = TelegramBot(BOT_TOKEN)
@@ -113,10 +125,16 @@ async def start_polling():
 Доступные команды:
 /start - Запустить приложение
 /help - Показать эту справку
+/volunteer_profile - Открыть профиль волонтёра
+/organizer_profile - Открыть профиль организатора
 
 Для работы с системой используйте кнопку "Открыть приложение"
                             """
                             await bot.send_message(chat_id, help_text)
+                        elif text == "/volunteer_profile":
+                            await handle_volunteer_profile_command(chat_id)
+                        elif text == "/organizer_profile":
+                            await handle_organizer_profile_command(chat_id)
 
         except Exception as e:
             print(f"Ошибка в боте: {e}")

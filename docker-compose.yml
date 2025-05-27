@@ -1,16 +1,18 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15
     environment:
       POSTGRES_DB: volunteer_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_USER: volunteer_user
+      POSTGRES_PASSWORD: your_password
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U volunteer_user -d volunteer_db" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,7 +25,7 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://postgres:password@db:5432/volunteer_db
+      DATABASE_URL: postgresql://volunteer_user:your_password@db:5432/volunteer_db
       BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
       WEBAPP_URL: https://4512-146-70-139-6.ngrok-free.app
       SECRET_KEY: your_secret_key_here
@@ -41,7 +43,7 @@ services:
       - app
       - db
     environment:
-      DATABASE_URL: postgresql://postgres:password@db:5432/volunteer_db
+      DATABASE_URL: postgresql://volunteer_user:your_password@db:5432/volunteer_db
       BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
       WEBAPP_URL: https://4512-146-70-139-6.ngrok-free.app
       ENVIRONMENT: development

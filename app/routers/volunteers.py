@@ -1,50 +1,53 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List
 
 from .. import crud, models, schemas
 from ..database import get_db
-from ..auth import get_telegram_user
+from ..auth import get_telegram_user_flexible
 
 router = APIRouter()
 
 
 @router.post("/register", response_model=schemas.UserResponse)
-def register_volunteer(user: schemas.UserCreate, db: Session = Depends(get_db), telegram_user: dict = Depends(get_telegram_user) ):
-    """Регистрация волонтёра (только один раз)"""
+def register_volunteer(
+        user: schemas.UserCreate,
+        db: Session = Depends(get_db),
+        telegram_user: dict = Depends(get_telegram_user_flexible)
+):
+    """Регистрация волонтёра через Telegram"""
+
+    print(f"👥 Registering volunteer: {telegram_user}")
+
+    # Используем данные из Telegram авторизации
+    user.telegram_id = telegram_user['id']
+
+    if not user.full_name:
+        user.full_name = f"{telegram_user['first_name']} {telegram_user['last_name'] or ''}".strip()
+
     user.role = "volunteer"
 
     # Проверяем, не зарегистрирован ли уже
     db_user = crud.get_user_by_telegram_id(db, user.telegram_id)
     if db_user:
-        raise HTTPException(status_code=400, detail="User already registered")
-    else:
-        """Регистрация волонтёра через Telegram"""
-        # Используем данные из Telegram
-        user.telegram_id = telegram_user['id']
-        if not user.full_name:
-            user.full_name = f"{telegram_user['first_name']} {telegram_user['last_name'] or ''}".strip()
+        print(f"👤 User already exists, updating: {db_user.id}")
+        # Обновляем существующего пользователя
+        for field, value in user.dict(exclude_unset=True).items():
+            if value is not None and hasattr(db_user, field):
+                setattr(db_user, field, value)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
 
-        # Проверяем, не зарегистрирован ли уже
-        db_user = crud.get_user_by_telegram_id(db, user.telegram_id)
-        if db_user:
-            # Обновляем существующего пользователя
-            for field, value in user.dict(exclude_unset=True).items():
-                if value is not None:
-                    setattr(db_user, field, value)
-            db.commit()
-            db.refresh(db_user)
-            return db_user
-
-        # Создаем нового пользователя
-        user.role = "volunteer"
+    # Создаем нового пользователя
+    print(f"➕ Creating new volunteer user")
     return crud.create_user(db, user)
 
 
 @router.get("/profile", response_model=schemas.UserResponse)
 def get_my_profile(
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user)
+        telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
     """Получение профиля текущего пользователя"""
     db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
@@ -56,10 +59,9 @@ def get_my_profile(
 @router.get("/applications", response_model=List[schemas.ApplicationResponse])
 def get_my_applications(
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user)
+        telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
     """Получение заявок текущего пользователя"""
-    # Сначала найдем пользователя в БД
     db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
     if not db_user:
         return []
@@ -71,10 +73,9 @@ def get_my_applications(
 def apply_to_event(
         application: schemas.ApplicationCreate,
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user)
+        telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
     """Подача заявки на мероприятие"""
-    # Найдем пользователя в БД
     db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
     if not db_user:
         raise HTTPException(status_code=404, detail="User not registered")
@@ -96,4 +97,3 @@ def apply_to_event(
 @router.get("/test")
 def test_volunteers():
     return {"message": "Volunteers API is working", "status": "ok"}
-
