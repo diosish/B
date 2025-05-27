@@ -193,28 +193,30 @@
                     console.log('Registration successful:', result);
 
                     if (tg && tg.showAlert) {
-                        tg.showAlert('✅ Регистрация успешна! Переходим в профиль...');
+                        tg.showAlert('✅ Регистрация успешна!');
                     }
 
                     setTimeout(() => {
                         window.location.href = '/organizer/profile';
-                    }, 1500);
+                    }, 1000);
+
+                } else if (response.status === 400) {
+                    const error = await response.json();
+                    console.log('User already registered:', error);
+
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('ℹ️ Вы уже зарегистрированы!');
+                    }
+
+                    setTimeout(() => {
+                        window.location.href = '/organizer/profile';
+                    }, 1000);
 
                 } else {
                     const error = await response.json();
-                    console.error('Registration failed:', error);
-
-                    if (response.status === 400 && error.detail === "User already registered") {
-                        if (tg && tg.showAlert) {
-                            tg.showAlert('ℹ️ Вы уже зарегистрированы! Переходим в профиль...');
-                        }
-                        setTimeout(() => {
-                            window.location.href = '/organizer/profile';
-                        }, 1500);
-                    } else {
-                        throw new Error(error.detail || 'Registration failed');
-                    }
+                    throw new Error(error.detail || 'Registration failed');
                 }
+
             } catch (error) {
                 console.error('Error during registration:', error);
 
@@ -223,7 +225,8 @@
                 } else {
                     alert('❌ Ошибка регистрации: ' + error.message);
                 }
-            } finally {
+
+                // Восстанавливаем кнопку только при ошибке
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;
             }
