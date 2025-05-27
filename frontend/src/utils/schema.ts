@@ -1,5 +1,3 @@
-// src/utils/schema.ts
-
 export interface UserRead {
   id: string
   tg_id: number
@@ -9,14 +7,13 @@ export interface UserRead {
   subtype_id: string | null
   profile_data: Record<string, any>
 }
-
 export interface EventRead {
   id: string
   title: string
   description: string
   city: string
-  date_start: string   // ISO-строка
-  date_end: string     // ISO-строка
+  date_start: string
+  date_end: string
   pay: number
   work_class: string
   organizer_id: string
