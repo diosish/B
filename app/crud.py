@@ -5,18 +5,13 @@ from typing import List, Optional
 
 
 def get_user_by_telegram_id(db: Session, telegram_id: int):
-    """Получение пользователя по Telegram ID"""
-    try:
-        print(f"Looking for user with telegram_id: {telegram_id}")
-        user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
-        if user:
-            print(f"User found: {user.id}")
-        else:
-            print("User not found")
-        return user
-    except Exception as e:
-        print(f"Error getting user: {str(e)}")
-        raise
+    print(f"Looking for user with telegram_id: {telegram_id}")
+    user = db.query(models.User).filter(models.User.telegram_id == telegram_id).first()
+    if user:
+        print(f"User found: {user.id}")
+    else:
+        print("User not found")
+    return user
 
 
 def create_user(db: Session, user: schemas.UserCreate):

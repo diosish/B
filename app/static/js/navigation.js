@@ -4,6 +4,7 @@ class NavigationManager {
         this.history = [];
     }
 
+    // Навигация для волонтёров
     goToVolunteerProfile() {
         window.location.href = '/volunteer/profile';
     }
@@ -16,6 +17,7 @@ class NavigationManager {
         window.location.href = '/volunteer/applications';
     }
 
+    // Навигация для организаторов
     goToOrganizerProfile() {
         window.location.href = '/organizer/profile';
     }
@@ -32,6 +34,7 @@ class NavigationManager {
         window.location.href = `/organizer/applications?event_id=${eventId}`;
     }
 
+    // Общие функции
     goHome() {
         window.location.href = '/';
     }
@@ -44,6 +47,7 @@ class NavigationManager {
         }
     }
 
+    // Создание навигационного меню
     createVolunteerMenu() {
         return `
             <div class="navigation-menu">
@@ -77,4 +81,5 @@ class NavigationManager {
     }
 }
 
+// Создаем глобальный экземпляр
 window.nav = new NavigationManager();

@@ -25,15 +25,19 @@ class ApplicationStatus(str, Enum):
 
 # User schemas
 class UserBase(BaseModel):
-    full_name: str
-    city: Optional[str] = None
+    telegram_id: int
+    first_name: str
+    last_name: str
+    city: Optional[str] = ''
 
 
 class UserCreate(UserBase):
-    telegram_id: int
     role: str = "volunteer"
-    # Поля волонтёра
+    full_name: Optional[str] = None
+    city: Optional[str] = None
     volunteer_type: Optional[str] = None
+
+    # Поля волонтёра
     skills: Optional[str] = None
     # Поля организатора
     org_type: Optional[str] = None
@@ -55,7 +59,6 @@ class UserUpdate(BaseModel):
 
 class UserResponse(UserBase):
     id: int
-    telegram_id: int
     role: str
     created_at: datetime
     is_active: bool = True
@@ -72,9 +75,9 @@ class UserResponse(UserBase):
     inn: Optional[str] = None
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-        orm_mode = True
+class Config:
+    from_attributes = True
+    orm_mode = True
 
 
 # Event schemas

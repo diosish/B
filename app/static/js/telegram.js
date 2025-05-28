@@ -21,14 +21,6 @@ function getTelegramUser() {
     const tg = window.Telegram?.WebApp;
     if (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) {
         return tg.initDataUnsafe.user;
-    }
-
-    // Заглушка для разработки
-    return {
-        id: 123456789,
-        first_name: "Test",
-        last_name: "User",
-        username: "testuser"
     };
 }
 

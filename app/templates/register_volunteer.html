@@ -117,16 +117,6 @@
                 });
             }
 
-            // Fallback для тестирования
-            if (!currentUser) {
-                console.log('⚠️ No Telegram user data, using test data');
-                currentUser = {
-                    id: 123456789,
-                    first_name: 'Test',
-                    last_name: 'User'
-                };
-            }
-
             showUserInfo();
             prefillForm();
         }
@@ -146,16 +136,8 @@
             const headers = {
                 'Content-Type': 'application/json'
             };
-
-            // Добавляем заголовок авторизации если есть данные Telegram
-            if (tg && tg.initData) {
-                headers['Authorization'] = tg.initData;
-                console.log('🔐 Added Authorization header');
-            } else {
-                headers['Authorization'] = 'test_data';
-                console.log('🧪 Using test authorization');
-            }
-
+            headers['Authorization'] = tg.initData;
+            console.log('🔐 Added Authorization header');
             return headers;
         }
 

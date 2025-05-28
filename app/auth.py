@@ -90,19 +90,12 @@ def verify_telegram_auth(init_data: str) -> dict:
         raise HTTPException(status_code=401, detail=f"Invalid auth data: {str(e)}")
 
 
-def get_telegram_user(authorization: Optional[str] = Header(None)):
+def get_telegram_user(authorization):
     """Получение данных пользователя из заголовка"""
-
-    # Логируем для отладки
-    print(f"🔍 Authorization header: {authorization is not None}")
-
-    # Продакшн режим - требуем заголовок
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization header required")
 
     return verify_telegram_auth(authorization)
 
 
-def get_telegram_user_flexible(authorization: Optional[str] = Header(None)):
+def get_telegram_user_flexible(authorization: Optional[str] = Header()):
     """Более гибкая версия получения пользователя - всегда возвращает результат"""
-    return get_telegram_user(authorization)
+    return verify_telegram_auth(authorization)

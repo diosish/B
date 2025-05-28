@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Body, APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -6,6 +6,7 @@ from .. import crud, models, schemas
 from ..database import get_db
 from ..auth import get_telegram_user_flexible
 from ..bot import notify_new_application
+from ..schemas import UserCreate
 
 router = APIRouter()
 
@@ -18,44 +19,17 @@ def register_volunteer(
 ):
     """Регистрация волонтёра через Telegram"""
 
-    print(f"👥 Registering volunteer: {telegram_user}")
+    print(f"👥 Registering volunteer: {telegram_user['id']}")
     print(f"📊 Received user data: {user_data}")
-
-    # Проверяем, не зарегистрирован ли уже пользователь
-    db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
-
-    if db_user:
-        print(f"👤 User already exists, updating: {db_user.id}")
-        # Обновляем существующего пользователя
-        if user_data.full_name:
-            db_user.full_name = user_data.full_name
-        if user_data.city:
-            db_user.city = user_data.city
-        if user_data.volunteer_type:
-            db_user.volunteer_type = user_data.volunteer_type
-        if user_data.skills:
-            db_user.skills = user_data.skills
-
-        # Убеждаемся что роль правильная
-        db_user.role = "volunteer"
-
-        db.commit()
-        db.refresh(db_user)
-        return db_user
-
-    # Создаем объект UserCreate с правильными данными
-    full_name = user_data.full_name
-    if not full_name:
-        full_name = f"{telegram_user['first_name']} {telegram_user['last_name'] or ''}".strip()
 
     # Создаем новый объект UserCreate с полными данными
     create_data = schemas.UserCreate(
         telegram_id=telegram_user['id'],  # Берем из Telegram данных
-        full_name=full_name,
+        full_name=telegram_user['first_name'] + telegram_user['last_name'],
         city=user_data.city,
         role="volunteer",
-        volunteer_type=user_data.volunteer_type,
-        skills=user_data.skills,
+        volunteer_type=telegram_user['volunteer_type'],
+        skills=telegram_user['skills'],
         # Обнуляем поля организатора
         org_type=None,
         org_name=None,
