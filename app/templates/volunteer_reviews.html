@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мои отзывы</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/navigation.css" rel="stylesheet">
+    <style>
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 10px;
+            padding-bottom: 80px;
+        }
+
+        .telegram-card {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border: 1px solid var(--tg-theme-hint-color, #999999);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .rating-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .rating-big {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .rating-stars {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .review-card {
+            border-left: 4px solid #ffc107;
+            margin-bottom: 12px;
+        }
+
+        .review-rating {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .stars {
+            color: #ffc107;
+        }
+
+        .review-meta {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #666);
+            margin-top: 8px;
+        }
+
+        .no-reviews {
+            text-align: center;
+            padding: 40px;
+            color: var(--tg-theme-hint-color, #666);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Общий рейтинг -->
+        <div id="ratingSummary" class="rating-summary" style="display: none;">
+            <div class="rating-big" id="overallRating">0.0</div>
+            <div class="rating-stars" id="overallStars">⭐⭐⭐⭐⭐</div>
+            <div>На основе <span id="reviewCount">0</span> отзывов</div>
+        </div>
+
+        <!-- Список отзывов -->
+        <div class="telegram-card">
+            <h3>💬 Отзывы о моей работе</h3>
+            <div id="reviewsList">
+                <div class="text-center">
+                    <div class="spinner-border" role="status"></div>
+                    <p>Загружаем отзывы...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="navigation-menu">
+        <button class="nav-btn" onclick="nav.goToVolunteerProfile()">👤 Профиль</button>
+        <button class="nav-btn" onclick="nav.goToVolunteerEvents()">📅 Мероприятия</button>
+        <button class="nav-btn" onclick="nav.goToVolunteerApplications()">📋 Заявки</button>
+        <button class="nav-btn active" onclick="window.location.reload()">⭐ Отзывы</button>
+    </div>
+
+    <script src="/static/js/role-guard.js"></script>
+    <script src="/static/js/navigation.js"></script>
+    <script>
+        let tg = window.Telegram?.WebApp;
+        let currentUser = null;
+
+        async function init() {
+            // Проверяем роль
+            const roleCheckPassed = await roleGuard.init();
+            if (!roleCheckPassed || !roleGuard.checkVolunteerAccess()) {
+                return;
+            }
+
+            if (tg) {
+                tg.ready();
+                tg.expand();
+                currentUser = tg.initDataUnsafe?.user;
+
+                tg.MainButton.setText('🏠 Главная');
+                tg.MainButton.show();
+                tg.MainButton.onClick(() => {
+                    window.location.href = '/';
+                });
+            }
+
+            await loadReviews();
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Authorization': tg ? tg.initData : 'test_data'
+            };
+        }
+
+        async function loadReviews() {
+            try {
+                const response = await fetch(`/api/reviews/volunteer/${currentUser.id}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const reviews = await response.json();
+                    displayReviews(reviews);
+                    updateRatingSummary(reviews);
+                } else {
+                    throw new Error('Failed to load reviews');
+                }
+            } catch (error) {
+                console.error('Error loading reviews:', error);
+                document.getElementById('reviewsList').innerHTML = `
+                    <div class="no-reviews">
+                        <p>❌ Ошибка загрузки отзывов</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayReviews(reviews) {
+            const container = document.getElementById('reviewsList');
+
+            if (reviews.length === 0) {
+                container.innerHTML = `
+                    <div class="no-reviews">
+                        <h5>📝 Пока нет отзывов</h5>
+                        <p>Выполните несколько мероприятий, чтобы получить первые отзывы!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = reviews.map(review => `
+                <div class="telegram-card review-card">
+                    <div class="review-rating">
+                        <span class="stars">${'⭐'.repeat(review.rating)}</span>
+                        <strong>${review.rating}/5</strong>
+                    </div>
+
+                    <p>${review.comment}</p>
+
+                    <div class="review-meta">
+                        📅 Мероприятие: <strong>${review.event_title}</strong><br>
+                        📅 ${new Date(review.created_at).toLocaleDateString('ru-RU')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateRatingSummary(reviews) {
+            if (reviews.length === 0) return;
+
+            const avgRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length;
+            const roundedRating = Math.round(avgRating * 10) / 10;
+
+            document.getElementById('overallRating').textContent = roundedRating.toFixed(1);
+            document.getElementById('overallStars').textContent = '⭐'.repeat(Math.round(avgRating));
+            document.getElementById('reviewCount').textContent = reviews.length;
+            document.getElementById('ratingSummary').style.display = 'block';
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

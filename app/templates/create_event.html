@@ -177,7 +177,7 @@
         <button class="nav-btn active" onclick="nav.goToCreateEvent()">➕ Создать</button>
         <button class="nav-btn" onclick="nav.goToOrganizerEvents()">📋 События</button>
     </div>
-
+    <script src="/static/js/role-guard.js"></script>
     <script src="/static/js/auth.js"></script>
     <script src="/static/js/navigation.js"></script>
     <script>
@@ -185,6 +185,10 @@
         let currentUser = null;
 
         async function init() {
+            const roleCheckPassed = await roleGuard.init();
+            if (!roleCheckPassed || !roleGuard.checkOrganizerAccess()) {
+                return;
+            }
             console.log('🎯 Initializing event creation page...');
 
             if (tg) {

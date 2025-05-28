@@ -129,7 +129,7 @@
         <button class="nav-btn active" onclick="nav.goToVolunteerEvents()">📅 Мероприятия</button>
         <button class="nav-btn" onclick="nav.goToVolunteerApplications()">📋 Заявки</button>
     </div>
-
+    <script src="/static/js/role-guard.js"></script>
     <script src="/static/js/auth.js"></script>
     <script src="/static/js/navigation.js"></script>
     <script>
@@ -139,6 +139,12 @@
         let myApplications = new Set();
 
         async function init() {
+
+            const roleCheckPassed = await roleGuard.init();
+            if (!roleCheckPassed || !roleGuard.checkVolunteerAccess()) {
+                return;
+            }
+
             console.log('📅 Initializing events page...');
 
             if (tg) {

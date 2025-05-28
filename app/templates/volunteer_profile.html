@@ -118,7 +118,7 @@
         <button class="nav-btn" onclick="nav.goToVolunteerEvents()">📅 Мероприятия</button>
         <button class="nav-btn" onclick="nav.goToVolunteerApplications()">📋 Заявки</button>
     </div>
-
+    <script src="/static/js/role-guard.js"></script>
     <script src="/static/js/auth.js"></script>
     <script src="/static/js/navigation.js"></script>
     <script>
@@ -128,6 +128,10 @@
         let currentUser = null;
 
         async function init() {
+            const roleCheckPassed = await roleGuard.init();
+            if (!roleCheckPassed || !roleGuard.checkVolunteerAccess()) {
+                return;
+            }
             if (tg) {
                 tg.ready();
                 tg.expand();

@@ -171,7 +171,7 @@
         <button class="nav-btn" onclick="nav.goToCreateEvent()">➕ Создать</button>
         <button class="nav-btn active" onclick="nav.goToOrganizerEvents()">📋 События</button>
     </div>
-
+    <script src="/static/js/role-guard.js"></script>
     <script src="/static/js/auth.js"></script>
     <script src="/static/js/navigation.js"></script>
     <script>
@@ -181,6 +181,10 @@
         let currentFilter = 'all';
 
         async function init() {
+            const roleCheckPassed = await roleGuard.init();
+            if (!roleCheckPassed || !roleGuard.checkOrganizerAccess()) {
+                return;
+            }
             console.log('📋 Initializing organizer events page...');
 
             if (tg) {
@@ -301,6 +305,12 @@
                             📋 Заявки
                         </button>
 
+                        ${event.status === 'active' || event.status === 'completed' ? `
+                            <button class="action-btn" style="background: #17a2b8;" onclick="exportVolunteersPDF(${event.id})">
+                                📄 Экспорт PDF
+                            </button>
+                        ` : ''}
+
                         ${event.status === 'active' ? `
                             <button class="action-btn btn-edit" onclick="editEvent(${event.id})">
                                 ✏️ Изменить
@@ -324,6 +334,37 @@
 
             // Загружаем количество заявок для каждого мероприятия
             events.forEach(event => loadApplicationsCount(event.id));
+        }
+
+        async function exportVolunteersPDF(eventId) {
+            try {
+                const response = await fetch(`/api/export/volunteers/${eventId}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `volunteers_${eventId}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('📄 PDF файл загружен!');
+                    }
+                } else {
+                    throw new Error('Failed to export PDF');
+                }
+            } catch (error) {
+                console.error('Error exporting PDF:', error);
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ Ошибка экспорта PDF');
+                }
+            }
         }
 
         async function loadApplicationsCount(eventId) {
