@@ -161,22 +161,22 @@ def delete_event(
     if event.organizer_id != db_user.id:
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Проверяем, можно ли удалить мероприятие
-    applications_count = db.query(models.Application).filter(
-        models.Application.event_id == event_id
-    ).count()
+    try:
+        # Удаляем связанные данные в правильном порядке
+        # Сначала отзывы
+        db.query(models.Review).filter(models.Review.event_id == event_id).delete()
 
-    if applications_count > 0:
-        raise HTTPException(
-            status_code=400,
-            detail="Cannot delete event with applications. Cancel the event instead."
-        )
+        # Затем заявки
+        db.query(models.Application).filter(models.Application.event_id == event_id).delete()
 
-    # Удаляем мероприятие
-    db.delete(event)
-    db.commit()
+        # И наконец само мероприятие
+        db.delete(event)
+        db.commit()
 
-    print(f"✅ Event {event_id} deleted successfully")
+        print(f"✅ Event {event_id} deleted successfully")
+        return {"message": "Event deleted successfully", "event_id": event_id}
 
-    return {"message": "Event deleted successfully"}
-
+    except Exception as e:
+        print(f"❌ Error deleting event: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to delete event: {str(e)}")

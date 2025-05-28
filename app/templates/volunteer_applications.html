@@ -355,6 +355,12 @@
                             Заявка подана: ${new Date(app.applied_at).toLocaleDateString('ru-RU')} в ${new Date(app.applied_at).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}
                         </div>
 
+                        ${app.status === 'pending' ? `
+                            <button class="action-button" style="background: #ffc107;" onclick="withdrawApplication(${app.id})">
+                                ↩️ Отозвать заявку
+                            </button>
+                        ` : ''}
+
                         ${app.status === 'rejected' ? `
                             <button class="action-button" onclick="nav.goToVolunteerEvents()">
                                 🔍 Найти другие мероприятия
@@ -368,6 +374,36 @@
                 `;
             }).join('');
         }
+
+        async function withdrawApplication(applicationId) {
+            const confirmed = confirm('Отозвать заявку?\n\nВы сможете подать заявку снова позже.');
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(`/api/applications/${applicationId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Заявка отозвана');
+                    }
+
+                    // Обновляем список заявок
+                    await loadApplications();
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to withdraw application');
+                }
+            } catch (error) {
+                console.error('Error withdrawing application:', error);
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ Ошибка: ' + error.message);
+                }
+            }
+        }
+
 
         function filterApplications(status) {
             currentFilter = status;

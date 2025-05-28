@@ -148,3 +148,54 @@ def get_my_applications(
 ):
     """Получение заявок текущего пользователя"""
     return get_volunteer_applications(telegram_user['id'], db)
+
+@router.delete("/{application_id}")
+async def withdraw_application(
+        application_id: int,
+        db: Session = Depends(get_db),
+        telegram_user: dict = Depends(get_telegram_user_flexible)
+):
+    """Отзыв заявки волонтером"""
+
+    print(f"🔄 Withdrawing application {application_id} by user {telegram_user['id']}")
+
+    # Получаем волонтёра
+    volunteer = crud.get_user_by_telegram_id(db, telegram_user['id'])
+    if not volunteer:
+        raise HTTPException(status_code=404, detail="Volunteer not found")
+
+    # Получаем заявку
+    application = db.query(models.Application).filter(
+        models.Application.id == application_id
+    ).first()
+
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    # Проверяем, что это заявка текущего пользователя
+    if application.volunteer_id != volunteer.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Проверяем, что заявку можно отозвать (только pending заявки)
+    if application.status != "pending":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot withdraw application with status: {application.status}"
+        )
+
+    try:
+        # Удаляем заявку
+        db.delete(application)
+        db.commit()
+
+        print(f"✅ Application {application_id} withdrawn successfully")
+
+        return {
+            "message": "Application withdrawn successfully",
+            "application_id": application_id
+        }
+
+    except Exception as e:
+        print(f"❌ Error withdrawing application: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to withdraw application")

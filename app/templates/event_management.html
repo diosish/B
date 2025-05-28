@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление мероприятием</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 8px;
+            font-size: 14px;
+            padding-bottom: 20px;
+        }
+
+        .event-card {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border: 1px solid var(--tg-theme-hint-color, #999999);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .event-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .event-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .event-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .status-active {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-completed {
+            background: #6c757d;
+            color: white;
+        }
+
+        .status-cancelled {
+            background: #dc3545;
+            color: white;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: var(--tg-theme-secondary-bg-color, #f8f9fa);
+            border-radius: 8px;
+        }
+
+        .stat-number {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--tg-theme-hint-color, #666);
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 15px 10px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+            font-weight: 500;
+            font-size: 12px;
+            min-height: 70px;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: #17a2b8;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .btn-success {
+            background: #28a745;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+
+        .btn-info {
+            background: #007bff;
+        }
+
+        .action-icon {
+            font-size: 20px;
+        }
+
+        .applications-summary {
+            background: var(--tg-theme-secondary-bg-color, #f8f9fa);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 15px 0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc3545;
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .action-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+
+            .action-btn {
+                padding: 12px 8px;
+                font-size: 11px;
+                min-height: 60px;
+            }
+
+            .action-icon {
+                font-size: 16px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .action-grid {
+                grid-template-columns: 1fr;
+                gap: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loadingSection">
+            <div class="loading">
+                <div class="spinner-border" role="status"></div>
+                <p>Загружаем данные мероприятия...</p>
+            </div>
+        </div>
+
+        <div id="eventContent" style="display: none;">
+            <!-- Заголовок мероприятия -->
+            <div class="event-header">
+                <div class="event-title" id="eventTitle">Загрузка...</div>
+                <div>💰 <span id="eventPayment">0</span> ₽</div>
+                <div class="event-status" id="eventStatus">🟢 Активно</div>
+            </div>
+
+            <!-- Статистика -->
+            <div class="event-card">
+                <h4>📊 Статистика</h4>
+                <div class="stats-grid" id="statsGrid">
+                    <!-- Заполняется JS -->
+                </div>
+            </div>
+
+            <!-- Краткая информация о заявках -->
+            <div class="event-card">
+                <h4>📋 Заявки</h4>
+                <div class="applications-summary" id="applicationsSummary">
+                    Загрузка информации о заявках...
+                </div>
+            </div>
+
+            <!-- Действия -->
+            <div class="event-card">
+                <h4>⚙️ Управление</h4>
+                <div class="action-grid" id="actionsGrid">
+                    <!-- Заполняется JS -->
+                </div>
+            </div>
+        </div>
+
+        <div id="errorSection" style="display: none;">
+            <div class="error">
+                <h4>❌ Ошибка</h4>
+                <p id="errorMessage">Не удалось загрузить мероприятие</p>
+                <button class="action-btn btn-secondary" onclick="window.history.back()">
+                    ← Назад
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram?.WebApp;
+        let currentUser = null;
+        let eventId = null;
+        let eventData = null;
+        let applicationsData = [];
+
+        async function init() {
+            console.log('⚙️ Initializing event management page...');
+
+            if (tg) {
+                tg.ready();
+                tg.expand();
+                currentUser = tg.initDataUnsafe?.user;
+
+                tg.MainButton.setText('📋 Мои мероприятия');
+                tg.MainButton.show();
+                tg.MainButton.onClick(() => {
+                    window.location.href = '/organizer/events';
+                });
+            }
+
+            // Получаем ID мероприятия из URL
+            const urlParams = new URLSearchParams(window.location.search);
+            eventId = urlParams.get('event_id');
+
+            if (!eventId) {
+                showError('ID мероприятия не указан');
+                return;
+            }
+
+            await loadEventData();
+            await loadApplicationsData();
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Authorization': tg ? tg.initData : 'test_data'
+            };
+        }
+
+        async function loadEventData() {
+            try {
+                const response = await fetch(`/api/events/${eventId}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    eventData = await response.json();
+                    displayEventHeader();
+                } else {
+                    throw new Error('Event not found');
+                }
+            } catch (error) {
+                console.error('Error loading event:', error);
+                showError('Мероприятие не найдено');
+            }
+        }
+
+        async function loadApplicationsData() {
+            try {
+                const response = await fetch(`/api/applications/event/${eventId}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    applicationsData = await response.json();
+                    displayContent();
+                } else {
+                    throw new Error('Failed to load applications');
+                }
+            } catch (error) {
+                console.error('Error loading applications:', error);
+                // Показываем интерфейс даже если заявки не загрузились
+                displayContent();
+            }
+        }
+
+        function displayEventHeader() {
+            document.getElementById('eventTitle').textContent = eventData.title;
+            document.getElementById('eventPayment').textContent = eventData.payment || 0;
+
+            const statusElement = document.getElementById('eventStatus');
+            const statusLabels = {
+                'active': '🟢 Активно',
+                'completed': '⚪ Завершено',
+                'cancelled': '🔴 Отменено'
+            };
+            statusElement.textContent = statusLabels[eventData.status] || `🟡 ${eventData.status}`;
+            statusElement.className = `event-status status-${eventData.status}`;
+        }
+
+        function displayContent() {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('eventContent').style.display = 'block';
+
+            displayStats();
+            displayApplicationsSummary();
+            displayActions();
+        }
+
+        function displayStats() {
+            const totalApps = applicationsData.length;
+            const pendingApps = applicationsData.filter(app => app.status === 'pending').length;
+            const approvedApps = applicationsData.filter(app => app.status === 'approved').length;
+            const rejectedApps = applicationsData.filter(app => app.status === 'rejected').length;
+
+            document.getElementById('statsGrid').innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-number">${totalApps}</div>
+                    <div class="stat-label">Всего заявок</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">${pendingApps}</div>
+                    <div class="stat-label">Ожидают</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">${approvedApps}</div>
+                    <div class="stat-label">Одобрено</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number">${rejectedApps}</div>
+                    <div class="stat-label">Отклонено</div>
+                </div>
+            `;
+        }
+
+        function displayApplicationsSummary() {
+            const pendingCount = applicationsData.filter(app => app.status === 'pending').length;
+            const approvedCount = applicationsData.filter(app => app.status === 'approved').length;
+
+            let summaryText = '';
+            if (pendingCount > 0) {
+                summaryText += `⏳ ${pendingCount} заявок ожидают рассмотрения\n`;
+            }
+            if (approvedCount > 0) {
+                summaryText += `✅ ${approvedCount} волонтёров одобрено\n`;
+            }
+            if (!summaryText) {
+                summaryText = '📭 Пока нет заявок на это мероприятие';
+            }
+
+            document.getElementById('applicationsSummary').textContent = summaryText.trim();
+        }
+
+        function displayActions() {
+            const actions = [];
+
+            // Заявки - всегда доступны
+            actions.push({
+                icon: '📋',
+                text: 'Заявки',
+                action: 'viewApplications()',
+                class: 'btn-primary'
+            });
+
+            // Экспорт - если есть одобренные заявки
+            const approvedCount = applicationsData.filter(app => app.status === 'approved').length;
+            if (approvedCount > 0) {
+                actions.push({
+                    icon: '📄',
+                    text: 'Экспорт CSV',
+                    action: 'exportVolunteers()',
+                    class: 'btn-secondary'
+                });
+            }
+
+            // Действия в зависимости от статуса
+            if (eventData.status === 'active') {
+                actions.push({
+                    icon: '✏️',
+                    text: 'Изменить',
+                    action: 'editEvent()',
+                    class: 'btn-warning'
+                });
+
+                actions.push({
+                    icon: '✅',
+                    text: 'Завершить',
+                    action: 'completeEvent()',
+                    class: 'btn-success'
+                });
+
+                actions.push({
+                    icon: '❌',
+                    text: 'Отменить',
+                    action: 'cancelEvent()',
+                    class: 'btn-danger'
+                });
+            }
+
+            // Отзывы - если мероприятие завершено
+            if (eventData.status === 'completed') {
+                actions.push({
+                    icon: '⭐',
+                    text: 'Отзывы',
+                    action: 'manageReviews()',
+                    class: 'btn-info'
+                });
+            }
+
+            // Удаление - всегда доступно
+            actions.push({
+                icon: '🗑️',
+                text: 'Удалить',
+                action: 'deleteEvent()',
+                class: 'btn-danger'
+            });
+
+            document.getElementById('actionsGrid').innerHTML = actions.map(action => `
+                <button class="action-btn ${action.class}" onclick="${action.action}">
+                    <div class="action-icon">${action.icon}</div>
+                    <div>${action.text}</div>
+                </button>
+            `).join('');
+        }
+
+        function viewApplications() {
+            window.location.href = `/organizer/applications?event_id=${eventId}`;
+        }
+
+        async function exportVolunteers() {
+            try {
+                const response = await fetch(`/api/export/volunteers/${eventId}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    a.download = `volunteers_${eventId}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('📄 Файл загружен!');
+                    }
+                } else {
+                    throw new Error('Export failed');
+                }
+            } catch (error) {
+                console.error('Error exporting:', error);
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ Ошибка экспорта');
+                }
+            }
+        }
+
+        function editEvent() {
+            if (tg && tg.showAlert) {
+                tg.showAlert('✏️ Функция редактирования будет добавлена в следующей версии');
+            }
+        }
+
+        async function completeEvent() {
+            const confirmed = confirm('Завершить мероприятие?\n\nПосле завершения вы сможете оставить отзывы волонтёрам.');
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(`/api/events/${eventId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
+                    body: JSON.stringify({ status: 'completed' })
+                });
+
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Мероприятие завершено!');
+                    }
+                    location.reload();
+                } else {
+                    throw new Error('Failed to complete event');
+                }
+            } catch (error) {
+                console.error('Error completing event:', error);
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ Ошибка при завершении');
+                }
+            }
+        }
+
+        async function cancelEvent() {
+            const confirmed = confirm('Отменить мероприятие?\n\nВсе волонтёры получат уведомление об отмене.');
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(`/api/events/${eventId}/status`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
+                    body: JSON.stringify({ status: 'cancelled' })
+                });
+
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('❌ Мероприятие отменено');
+                    }
+                    location.reload();
+                } else {
+                    throw new Error('Failed to cancel event');
+                }
+            } catch (error) {
+                console.error('Error canceling event:', error);
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ Ошибка при отмене');
+                }
+            }
+        }
+
+        function manageReviews() {
+            window.location.href = `/organizer/reviews?event_id=${eventId}`;
+        }
+
+        async function deleteEvent() {
+            const confirmed = confirm('⚠️ ВНИМАНИЕ!\n\nВы действительно хотите удалить мероприятие?\n\nЭто действие нельзя отменить. Будут удалены:\n- Мероприятие\n- Все заявки\n- Все отзывы\n\nПродолжить?');
+            if (!confirmed) return;
+
+            const doubleConfirm = confirm('Последнее предупреждение!\n\nВы точно хотите НАВСЕГДА удалить это мероприятие?');
+            if (!doubleConfirm) return;
+
+            try {
+                const response = await fetch(`/api/events/${eventId}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Мероприятие удалено');
+                    }
+                    window.location.href = '/organizer/events';
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to delete event');
+                }
+            } catch (error) {
+                console.error('Error deleting event:', error);
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ Ошибка удаления: ' + error.message);
+                }
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorSection').style.display = 'block';
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

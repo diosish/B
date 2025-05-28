@@ -19,43 +19,64 @@ async def export_volunteers_csv(
 ):
     """Экспорт списка волонтёров мероприятия в CSV"""
 
-    # Проверяем права организатора
-    organizer = crud.get_user_by_telegram_id(db, telegram_user['id'])
-    if not organizer or organizer.role != "organizer":
-        raise HTTPException(status_code=403, detail="Access denied")
+    try:
+        # Проверяем права организатора
+        organizer = crud.get_user_by_telegram_id(db, telegram_user['id'])
+        if not organizer or organizer.role != "organizer":
+            raise HTTPException(status_code=403, detail="Access denied")
 
-    # Получаем мероприятие
-    event = crud.get_event_by_id(db, event_id)
-    if not event or event.organizer_id != organizer.id:
-        raise HTTPException(status_code=404, detail="Event not found")
+        # Получаем мероприятие
+        event = crud.get_event_by_id(db, event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
 
-    # Получаем одобренных волонтёров
-    approved_applications = db.query(models.Application).filter(
-        models.Application.event_id == event_id,
-        models.Application.status == "approved"
-    ).all()
+        if event.organizer_id != organizer.id:
+            raise HTTPException(status_code=403, detail="Access denied to this event")
 
-    # Создаем CSV контент
-    csv_content = "№,Имя,Город,Тип,Рейтинг,Навыки,Дата заявки\n"
+        # Получаем одобренных волонтёров
+        approved_applications = db.query(models.Application).filter(
+            models.Application.event_id == event_id,
+            models.Application.status == "approved"
+        ).all()
 
-    for i, app in enumerate(approved_applications, 1):
-        volunteer = crud.get_user_by_id(db, app.volunteer_id)
-        if volunteer:
-            csv_content += f"{i},"
-            csv_content += f'"{volunteer.full_name}",'
-            csv_content += f'"{volunteer.city or ""}",'
-            csv_content += f'"{volunteer.volunteer_type or ""}",'
-            csv_content += f"{volunteer.rating or 0:.1f},"
-            csv_content += f'"{(volunteer.skills or "").replace(chr(34), chr(39))}",'
-            csv_content += f'"{app.applied_at.strftime("%d.%m.%Y")}"\n'
+        # Создаем CSV контент
+        csv_lines = []
+        csv_lines.append("№,Имя,Город,Тип,Рейтинг,Навыки,Дата заявки")
 
-    return Response(
-        content=csv_content,
-        media_type="text/csv",
-        headers={
-            "Content-Disposition": f"attachment; filename=volunteers_{event.title}_{event_id}.csv"
-        }
-    )
+        if not approved_applications:
+            csv_lines.append("Нет одобренных волонтёров")
+        else:
+            for i, app in enumerate(approved_applications, 1):
+                volunteer = crud.get_user_by_id(db, app.volunteer_id)
+                if volunteer:
+                    # Безопасное экранирование CSV данных
+                    name = str(volunteer.full_name or "").replace('"', '""')
+                    city = str(volunteer.city or "").replace('"', '""')
+                    vol_type = str(volunteer.volunteer_type or "").replace('"', '""')
+                    skills = str(volunteer.skills or "").replace('"', '""')[:100]  # Ограничиваем длину
+                    rating = volunteer.rating or 0
+                    date = app.applied_at.strftime("%d.%m.%Y") if app.applied_at else ""
+
+                    csv_lines.append(f'{i},"{name}","{city}","{vol_type}",{rating:.1f},"{skills}","{date}"')
+
+        csv_content = "\n".join(csv_lines)
+
+        # Безопасное имя файла
+        safe_title = "".join(c for c in (event.title or "event") if c.isalnum() or c in (' ', '-', '_')).strip()[:20]
+
+        return Response(
+            content=csv_content.encode('utf-8-sig'),  # BOM для правильного отображения в Excel
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": f"attachment; filename=volunteers_{safe_title}_{event_id}.csv"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Export error: {e}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
 @router.get("/volunteers/{event_id}/json")
@@ -66,51 +87,64 @@ async def export_volunteers_json(
 ):
     """Экспорт списка волонтёров мероприятия в JSON"""
 
-    # Проверяем права организатора
-    organizer = crud.get_user_by_telegram_id(db, telegram_user['id'])
-    if not organizer or organizer.role != "organizer":
-        raise HTTPException(status_code=403, detail="Access denied")
+    try:
+        # Проверяем права организатора
+        organizer = crud.get_user_by_telegram_id(db, telegram_user['id'])
+        if not organizer or organizer.role != "organizer":
+            raise HTTPException(status_code=403, detail="Access denied")
 
-    # Получаем мероприятие
-    event = crud.get_event_by_id(db, event_id)
-    if not event or event.organizer_id != organizer.id:
-        raise HTTPException(status_code=404, detail="Event not found")
+        # Получаем мероприятие
+        event = crud.get_event_by_id(db, event_id)
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
 
-    # Получаем одобренных волонтёров
-    approved_applications = db.query(models.Application).filter(
-        models.Application.event_id == event_id,
-        models.Application.status == "approved"
-    ).all()
+        if event.organizer_id != organizer.id:
+            raise HTTPException(status_code=403, detail="Access denied to this event")
 
-    volunteers_data = []
-    for app in approved_applications:
-        volunteer = crud.get_user_by_id(db, app.volunteer_id)
-        if volunteer:
-            volunteers_data.append({
-                "name": volunteer.full_name,
-                "city": volunteer.city,
-                "type": volunteer.volunteer_type,
-                "rating": volunteer.rating or 0,
-                "skills": volunteer.skills,
-                "applied_at": app.applied_at.isoformat()
-            })
+        # Получаем одобренных волонтёров
+        approved_applications = db.query(models.Application).filter(
+            models.Application.event_id == event_id,
+            models.Application.status == "approved"
+        ).all()
 
-    export_data = {
-        "event": {
-            "id": event.id,
-            "title": event.title,
-            "date": event.date.isoformat() if event.date else None,
-            "city": event.city
-        },
-        "exported_at": datetime.utcnow().isoformat(),
-        "volunteers": volunteers_data,
-        "total_count": len(volunteers_data)
-    }
+        volunteers_data = []
+        for app in approved_applications:
+            volunteer = crud.get_user_by_id(db, app.volunteer_id)
+            if volunteer:
+                volunteers_data.append({
+                    "name": volunteer.full_name,
+                    "city": volunteer.city,
+                    "type": volunteer.volunteer_type,
+                    "rating": volunteer.rating or 0,
+                    "skills": volunteer.skills,
+                    "applied_at": app.applied_at.isoformat() if app.applied_at else None
+                })
 
-    return Response(
-        content=json.dumps(export_data, ensure_ascii=False, indent=2),
-        media_type="application/json",
-        headers={
-            "Content-Disposition": f"attachment; filename=volunteers_{event.title}_{event_id}.json"
+        export_data = {
+            "event": {
+                "id": event.id,
+                "title": event.title,
+                "date": event.date.isoformat() if event.date else None,
+                "city": event.city
+            },
+            "exported_at": datetime.utcnow().isoformat(),
+            "volunteers": volunteers_data,
+            "total_count": len(volunteers_data)
         }
-    )
+
+        # Безопасное имя файла
+        safe_title = "".join(c for c in (event.title or "event") if c.isalnum() or c in (' ', '-', '_')).strip()[:20]
+
+        return Response(
+            content=json.dumps(export_data, ensure_ascii=False, indent=2),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f"attachment; filename=volunteers_{safe_title}_{event_id}.json"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Export error: {e}")
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")

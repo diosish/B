@@ -75,6 +75,10 @@ async def volunteer_events_page(request: Request):
     """Список мероприятий для волонтёра"""
     return templates.TemplateResponse("volunteer_events.html", {"request": request})
 
+@app.get("/organizer/manage", response_class=HTMLResponse)
+async def event_management_page(request: Request):
+    """Управление мероприятием"""
+    return templates.TemplateResponse("event_management.html", {"request": request})
 
 @app.get("/volunteer/applications", response_class=HTMLResponse)
 async def volunteer_applications_page(request: Request):
