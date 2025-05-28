@@ -12,37 +12,59 @@ router = APIRouter()
 
 @router.post("/register", response_model=schemas.UserResponse)
 def register_volunteer(
-        user: schemas.UserCreate,
+        user_data: schemas.UserCreate,
         db: Session = Depends(get_db),
         telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
     """Регистрация волонтёра через Telegram"""
 
     print(f"👥 Registering volunteer: {telegram_user}")
+    print(f"📊 Received user data: {user_data}")
 
-    # Используем данные из Telegram авторизации
-    user.telegram_id = telegram_user['id']
+    # Проверяем, не зарегистрирован ли уже пользователь
+    db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
 
-    if not user.full_name:
-        user.full_name = f"{telegram_user['first_name']} {telegram_user['last_name'] or ''}".strip()
-
-    user.role = "volunteer"
-
-    # Проверяем, не зарегистрирован ли уже
-    db_user = crud.get_user_by_telegram_id(db, user.telegram_id)
     if db_user:
         print(f"👤 User already exists, updating: {db_user.id}")
         # Обновляем существующего пользователя
-        for field, value in user.dict(exclude_unset=True).items():
-            if value is not None and hasattr(db_user, field):
-                setattr(db_user, field, value)
+        if user_data.full_name:
+            db_user.full_name = user_data.full_name
+        if user_data.city:
+            db_user.city = user_data.city
+        if user_data.volunteer_type:
+            db_user.volunteer_type = user_data.volunteer_type
+        if user_data.skills:
+            db_user.skills = user_data.skills
+
+        # Убеждаемся что роль правильная
+        db_user.role = "volunteer"
+
         db.commit()
         db.refresh(db_user)
         return db_user
 
-    # Создаем нового пользователя
-    print(f"➕ Creating new volunteer user")
-    return crud.create_user(db, user)
+    # Создаем объект UserCreate с правильными данными
+    full_name = user_data.full_name
+    if not full_name:
+        full_name = f"{telegram_user['first_name']} {telegram_user['last_name'] or ''}".strip()
+
+    # Создаем новый объект UserCreate с полными данными
+    create_data = schemas.UserCreate(
+        telegram_id=telegram_user['id'],  # Берем из Telegram данных
+        full_name=full_name,
+        city=user_data.city,
+        role="volunteer",
+        volunteer_type=user_data.volunteer_type,
+        skills=user_data.skills,
+        # Обнуляем поля организатора
+        org_type=None,
+        org_name=None,
+        inn=None,
+        description=None
+    )
+
+    print(f"➕ Creating new volunteer user with data: {create_data}")
+    return crud.create_user(db, create_data)
 
 
 @router.get("/profile", response_model=schemas.UserResponse)

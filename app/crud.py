@@ -50,7 +50,7 @@ def get_events(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Event).offset(skip).limit(limit).all()
 
 
-def create_event(db: Session, event: schemas.EventCreate, organizer_id: int):
+def create_event(db: Session, event: schemas.EventCreate, organizer_id: int):  # ИСПРАВЛЕНО: было schemas.Event
     db_event = models.Event(
         title=event.title,
         description=event.description,
@@ -71,7 +71,7 @@ def get_applications_by_volunteer(db: Session, volunteer_id: int):
     return db.query(models.Application).filter(models.Application.volunteer_id == volunteer_id).all()
 
 
-def create_application(db: Session, application: schemas.ApplicationCreate):
+def create_application(db: Session, application: schemas.ApplicationCreate):  # ИСПРАВЛЕНО: было schemas.Application
     db_application = models.Application(
         event_id=application.event_id,
         volunteer_id=application.volunteer_id
