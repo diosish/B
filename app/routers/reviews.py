@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from pydantic import BaseModel
 
 from .. import crud, models, schemas
 from ..database import get_db
@@ -11,31 +10,9 @@ from ..bot import notify_review_received
 router = APIRouter()
 
 
-class ReviewCreate(BaseModel):
-    volunteer_id: int
-    event_id: int
-    rating: int
-    comment: str
-
-
-class ReviewResponse(BaseModel):
-    id: int
-    event_id: int
-    volunteer_id: int
-    organizer_id: int
-    rating: int
-    comment: str
-    created_at: str
-    volunteer_name: str
-    event_title: str
-
-    class Config:
-        from_attributes = True
-
-
-@router.post("/", response_model=ReviewResponse)
+@router.post("/", response_model=schemas.ReviewResponse)
 async def create_review(
-        review_data: ReviewCreate,
+        review_data: schemas.ReviewCreate,
         db: Session = Depends(get_db),
         telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
@@ -105,17 +82,20 @@ async def create_review(
                 print(f"❌ Failed to send notification: {e}")
 
         # Формируем ответ
-        return {
-            "id": review.id,
-            "event_id": review.event_id,
-            "volunteer_id": review.volunteer_id,
-            "organizer_id": review.organizer_id,
-            "rating": review.rating,
-            "comment": review.comment,
-            "created_at": review.created_at.isoformat(),
-            "volunteer_name": volunteer.full_name if volunteer else "Unknown",
-            "event_title": event.title
-        }
+        response = schemas.ReviewResponse(
+            id=review.id,
+            event_id=review.event_id,
+            volunteer_id=review.volunteer_id,
+            organizer_id=review.organizer_id,
+            rating=review.rating,
+            comment=review.comment,
+            created_at=review.created_at,
+            volunteer_name=volunteer.full_name if volunteer else "Unknown",
+            event_title=event.title,
+            organizer_name=organizer.full_name
+        )
+
+        return response
 
     except Exception as e:
         print(f"❌ Error creating review: {e}")
@@ -154,7 +134,7 @@ def get_reviewable_volunteers(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/volunteer/{volunteer_id}", response_model=List[ReviewResponse])
+@router.get("/volunteer/{volunteer_id}", response_model=List[schemas.ReviewResponse])
 def get_volunteer_reviews(
         volunteer_id: int,
         db: Session = Depends(get_db)
@@ -174,23 +154,23 @@ def get_volunteer_reviews(
         event = crud.get_event_by_id(db, review.event_id)
         organizer = crud.get_user_by_id(db, review.organizer_id)
 
-        result.append({
-            "id": review.id,
-            "event_id": review.event_id,
-            "volunteer_id": review.volunteer_id,
-            "organizer_id": review.organizer_id,
-            "rating": review.rating,
-            "comment": review.comment,
-            "created_at": review.created_at.isoformat(),
-            "volunteer_name": "",  # Не нужно для отзывов о волонтёре
-            "event_title": event.title if event else "Unknown event",
-            "organizer_name": organizer.full_name if organizer else "Unknown"
-        })
+        result.append(schemas.ReviewResponse(
+            id=review.id,
+            event_id=review.event_id,
+            volunteer_id=review.volunteer_id,
+            organizer_id=review.organizer_id,
+            rating=review.rating,
+            comment=review.comment,
+            created_at=review.created_at,
+            volunteer_name="",  # Не нужно для отзывов о волонтёре
+            event_title=event.title if event else "Unknown event",
+            organizer_name=organizer.full_name if organizer else "Unknown"
+        ))
 
     return result
 
 
-@router.get("/my", response_model=List[ReviewResponse])
+@router.get("/my", response_model=List[schemas.ReviewResponse])
 def get_my_reviews(
         db: Session = Depends(get_db),
         telegram_user: dict = Depends(get_telegram_user_flexible)
@@ -211,24 +191,25 @@ def get_my_reviews(
             event = crud.get_event_by_id(db, review.event_id)
             volunteer = crud.get_user_by_id(db, review.volunteer_id)
 
-            result.append({
-                "id": review.id,
-                "event_id": review.event_id,
-                "volunteer_id": review.volunteer_id,
-                "organizer_id": review.organizer_id,
-                "rating": review.rating,
-                "comment": review.comment,
-                "created_at": review.created_at.isoformat(),
-                "volunteer_name": volunteer.full_name if volunteer else "Unknown",
-                "event_title": event.title if event else "Unknown event"
-            })
+            result.append(schemas.ReviewResponse(
+                id=review.id,
+                event_id=review.event_id,
+                volunteer_id=review.volunteer_id,
+                organizer_id=review.organizer_id,
+                rating=review.rating,
+                comment=review.comment,
+                created_at=review.created_at,
+                volunteer_name=volunteer.full_name if volunteer else "Unknown",
+                event_title=event.title if event else "Unknown event",
+                organizer_name=""  # Не нужно для отзывов организатора
+            ))
 
         return result
 
     return []
 
 
-@router.get("/event/{event_id}", response_model=List[ReviewResponse])
+@router.get("/event/{event_id}", response_model=List[schemas.ReviewResponse])
 def get_event_reviews(
         event_id: int,
         db: Session = Depends(get_db)
@@ -241,16 +222,17 @@ def get_event_reviews(
         volunteer = crud.get_user_by_id(db, review.volunteer_id)
         event = crud.get_event_by_id(db, review.event_id)
 
-        result.append({
-            "id": review.id,
-            "event_id": review.event_id,
-            "volunteer_id": review.volunteer_id,
-            "organizer_id": review.organizer_id,
-            "rating": review.rating,
-            "comment": review.comment,
-            "created_at": review.created_at.isoformat(),
-            "volunteer_name": volunteer.full_name if volunteer else "Unknown",
-            "event_title": event.title if event else "Unknown event"
-        })
+        result.append(schemas.ReviewResponse(
+            id=review.id,
+            event_id=review.event_id,
+            volunteer_id=review.volunteer_id,
+            organizer_id=review.organizer_id,
+            rating=review.rating,
+            comment=review.comment,
+            created_at=review.created_at,
+            volunteer_name=volunteer.full_name if volunteer else "Unknown",
+            event_title=event.title if event else "Unknown event",
+            organizer_name=""  # Не указываем для списка по мероприятию
+        ))
 
     return result
