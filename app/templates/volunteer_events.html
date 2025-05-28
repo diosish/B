@@ -138,6 +138,10 @@
         let allEvents = [];
         let myApplications = new Set();
 
+        function viewEventDetails(eventId) {
+            window.location.href = `/event/${eventId}`;
+        }
+
         async function init() {
 
             const roleCheckPassed = await roleGuard.init();
@@ -264,11 +268,16 @@
                             ${event.duration ? `<div>⏰ ${event.duration} ч</div>` : ''}
                         </div>
 
-                        ${hasApplied ?
-                            '<span class="applied-badge">✅ Заявка подана</span>' :
-                            `<button class="telegram-button" onclick="applyToEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}')">
-                                ✋ Откликнуться
-                            </button>`
+                        <div style="display: flex; gap: 6px; margin-top: 10px;">
+                            <button class="telegram-button" style="flex: 1;" onclick="viewEventDetails(${event.id})">
+                                👁️ Подробнее
+                            </button>
+                            ${hasApplied ?
+                                '<span style="background: #28a745; color: white; padding: 6px 8px; border-radius: 4px; font-size: 11px; align-self: center;">✅ Заявка подана</span>' :
+                                `<button class="telegram-button" style="flex: 1;" onclick="applyToEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}')">✋ Откликнуться</button>`
+                            }
+                        </div>
+
                         }
                     </div>
                 `;

@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мероприятие</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 8px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .event-card {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border: 1px solid var(--tg-theme-hint-color, #999999);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .event-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .event-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .event-payment {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .event-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .status-active {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-completed {
+            background: #6c757d;
+            color: white;
+        }
+
+        .status-cancelled {
+            background: #dc3545;
+            color: white;
+        }
+
+        .event-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 12px;
+            margin: 15px 0;
+        }
+
+        .detail-item {
+            text-align: center;
+            padding: 12px;
+            background: var(--tg-theme-secondary-bg-color, #f8f9fa);
+            border-radius: 8px;
+        }
+
+        .detail-icon {
+            font-size: 20px;
+            margin-bottom: 6px;
+        }
+
+        .detail-label {
+            font-size: 11px;
+            color: var(--tg-theme-hint-color, #666);
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .event-description {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border: 1px solid var(--tg-theme-hint-color, #eee);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            white-space: pre-wrap;
+            line-height: 1.5;
+        }
+
+        .organizer-info {
+            background: var(--tg-theme-secondary-bg-color, #f8f9fa);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 15px 0;
+        }
+
+        .action-buttons {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .btn-apply {
+            background: var(--tg-theme-button-color, #2678b6);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .btn-applied {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #dc3545;
+        }
+
+        .contact-info {
+            background: #e7f3ff;
+            border: 1px solid #b3d7ff;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 15px 0;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 4px;
+            }
+
+            .event-header {
+                padding: 15px;
+                margin-bottom: 12px;
+            }
+
+            .event-title {
+                font-size: 18px;
+            }
+
+            .event-payment {
+                font-size: 20px;
+            }
+
+            .event-details-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+
+            .detail-item {
+                padding: 8px;
+            }
+
+            .detail-icon {
+                font-size: 16px;
+            }
+
+            .event-description {
+                padding: 12px;
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loadingSection">
+            <div class="loading">
+                <div class="spinner-border" role="status"></div>
+                <p>Загружаем мероприятие...</p>
+            </div>
+        </div>
+
+        <div id="eventContent" style="display: none;">
+            <!-- Заголовок мероприятия -->
+            <div class="event-header">
+                <div class="event-title" id="eventTitle">Загрузка...</div>
+                <div class="event-payment" id="eventPayment">💰 0 ₽</div>
+                <div class="event-status" id="eventStatus">🟢 Активно</div>
+            </div>
+
+            <!-- Детали мероприятия -->
+            <div class="event-card">
+                <h4>📋 Детали</h4>
+                <div class="event-details-grid" id="eventDetailsGrid">
+                    <!-- Заполняется JS -->
+                </div>
+            </div>
+
+            <!-- Описание -->
+            <div class="event-card">
+                <h4>📝 Описание</h4>
+                <div class="event-description" id="eventDescription">
+                    Загрузка описания...
+                </div>
+            </div>
+
+            <!-- Информация об организаторе -->
+            <div class="event-card">
+                <h4>🏢 Организатор</h4>
+                <div class="organizer-info" id="organizerInfo">
+                    Загрузка информации об организаторе...
+                </div>
+            </div>
+
+            <!-- Контактная информация (только для одобренных заявок) -->
+            <div class="event-card" id="contactSection" style="display: none;">
+                <h4>📞 Контакты</h4>
+                <div class="contact-info" id="contactInfo">
+                    Контактная информация будет доступна после одобрения заявки
+                </div>
+            </div>
+
+            <!-- Кнопки действий -->
+            <div class="action-buttons" id="actionButtons">
+                <!-- Заполняется JS -->
+            </div>
+        </div>
+
+        <div id="errorSection" style="display: none;">
+            <div class="error">
+                <h4>❌ Ошибка</h4>
+                <p id="errorMessage">Не удалось загрузить мероприятие</p>
+                <button class="btn-secondary" onclick="window.history.back()">
+                    ← Назад
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram?.WebApp;
+        let currentUser = null;
+        let eventId = null;
+        let eventData = null;
+        let applicationStatus = null;
+
+        async function init() {
+            console.log('🎯 Initializing event details page...');
+
+            if (tg) {
+                tg.ready();
+                tg.expand();
+                currentUser = tg.initDataUnsafe?.user;
+
+                tg.MainButton.setText('🔙 Назад');
+                tg.MainButton.show();
+                tg.MainButton.onClick(() => {
+                    window.history.back();
+                });
+            }
+
+            // Получаем ID мероприятия из URL
+            const urlPath = window.location.pathname;
+            eventId = urlPath.split('/').pop();
+
+            if (!eventId || isNaN(eventId)) {
+                showError('Неверный ID мероприятия');
+                return;
+            }
+
+            await loadEvent();
+            if (currentUser) {
+                await checkApplicationStatus();
+            }
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Authorization': tg ? tg.initData : 'test_data'
+            };
+        }
+
+        async function loadEvent() {
+            try {
+                const response = await fetch(`/api/events/${eventId}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    eventData = await response.json();
+                    await loadOrganizerInfo();
+                    displayEvent();
+                } else {
+                    throw new Error('Event not found');
+                }
+            } catch (error) {
+                console.error('Error loading event:', error);
+                showError('Мероприятие не найдено или удалено');
+            }
+        }
+
+        async function loadOrganizerInfo() {
+            try {
+                const response = await fetch(`/api/auth/check?telegram_id=${eventData.organizer.telegram_id}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    eventData.organizer = data.user;
+                }
+            } catch (error) {
+                console.error('Error loading organizer info:', error);
+            }
+        }
+
+        async function checkApplicationStatus() {
+            try {
+                const response = await fetch(`/api/applications/volunteer/${currentUser.id}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const applications = await response.json();
+                    const myApplication = applications.find(app => app.event_id == eventId);
+                    if (myApplication) {
+                        applicationStatus = myApplication.status;
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking application status:', error);
+            }
+        }
+
+        function displayEvent() {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('eventContent').style.display = 'block';
+
+            // Заголовок
+            document.getElementById('eventTitle').textContent = eventData.title;
+            document.getElementById('eventPayment').textContent = `💰 ${eventData.payment || 0} ₽`;
+
+            const statusElement = document.getElementById('eventStatus');
+            const statusLabels = {
+                'active': '🟢 Активно',
+                'completed': '⚪ Завершено',
+                'cancelled': '🔴 Отменено'
+            };
+            statusElement.textContent = statusLabels[eventData.status] || `🟡 ${eventData.status}`;
+            statusElement.className = `event-status status-${eventData.status}`;
+
+            // Детали
+            displayEventDetails();
+
+            // Описание
+            const description = eventData.description || 'Описание не указано';
+            document.getElementById('eventDescription').textContent = description;
+
+            // Организатор
+            displayOrganizerInfo();
+
+            // Кнопки действий
+            displayActionButtons();
+
+            // Контакты (если применимо)
+            displayContactInfo();
+        }
+
+        function displayEventDetails() {
+            const details = [
+                {
+                    icon: '📍',
+                    label: 'Город',
+                    value: eventData.city || 'Не указан'
+                },
+                {
+                    icon: '📅',
+                    label: 'Дата',
+                    value: eventData.date ? new Date(eventData.date).toLocaleDateString('ru-RU') : 'Гибкая'
+                },
+                {
+                    icon: '⏰',
+                    label: 'Длительность',
+                    value: eventData.duration ? `${eventData.duration} ч` : 'Не указана'
+                },
+                {
+                    icon: '🏷️',
+                    label: 'Тип работы',
+                    value: eventData.work_type || 'Не указан'
+                }
+            ];
+
+            document.getElementById('eventDetailsGrid').innerHTML = details.map(detail => `
+                <div class="detail-item">
+                    <div class="detail-icon">${detail.icon}</div>
+                    <div class="detail-label">${detail.label}</div>
+                    <div class="detail-value">${detail.value}</div>
+                </div>
+            `).join('');
+        }
+
+        function displayOrganizerInfo() {
+            const organizer = eventData.organizer;
+            document.getElementById('organizerInfo').innerHTML = `
+                <div><strong>${organizer?.full_name || 'Неизвестен'}</strong></div>
+                ${organizer?.org_type ? `<div>Тип: ${organizer.org_type}</div>` : ''}
+                ${organizer?.city ? `<div>Город: ${organizer.city}</div>` : ''}
+                ${organizer?.description ? `<div style="margin-top: 8px; font-size: 13px;">${organizer.description}</div>` : ''}
+            `;
+        }
+
+        function displayActionButtons() {
+            const buttonsContainer = document.getElementById('actionButtons');
+
+            if (!currentUser) {
+                buttonsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: var(--tg-theme-hint-color, #666);">
+                        <p>Войдите через Telegram, чтобы подать заявку</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (eventData.status !== 'active') {
+                buttonsContainer.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: var(--tg-theme-hint-color, #666);">
+                        <p>Мероприятие ${eventData.status === 'completed' ? 'завершено' : 'отменено'}</p>
+                        <p>Новые заявки не принимаются</p>
+                    </div>
+                `;
+                return;
+            }
+
+            if (applicationStatus) {
+                const statusMessages = {
+                    'pending': '⏳ Ваша заявка на рассмотрении',
+                    'approved': '✅ Ваша заявка одобрена!',
+                    'rejected': '❌ Ваша заявка отклонена'
+                };
+
+                buttonsContainer.innerHTML = `
+                    <button class="btn-apply btn-applied" disabled>
+                        ${statusMessages[applicationStatus]}
+                    </button>
+                    ${applicationStatus === 'rejected' ? `
+                        <button class="btn-secondary" onclick="window.location.href='/volunteer/events'">
+                            🔍 Найти другие мероприятия
+                        </button>
+                    ` : ''}
+                `;
+            } else {
+                buttonsContainer.innerHTML = `
+                    <button class="btn-apply" onclick="applyToEvent()">
+                        ✋ Подать заявку
+                    </button>
+                    <button class="btn-secondary" onclick="window.history.back()">
+                        ← Назад к списку
+                    </button>
+                `;
+            }
+        }
+
+        function displayContactInfo() {
+            if (applicationStatus === 'approved' && eventData.description && eventData.description.includes('📞 Контакты:')) {
+                const contactMatch = eventData.description.match(/📞 Контакты:\s*([^\n]+)/);
+                if (contactMatch) {
+                    document.getElementById('contactInfo').innerHTML = `
+                        <strong>Свяжитесь с организатором:</strong><br>
+                        ${contactMatch[1]}
+                    `;
+                    document.getElementById('contactSection').style.display = 'block';
+                }
+            }
+        }
+
+        async function applyToEvent() {
+            if (!currentUser) {
+                if (tg && tg.showAlert) {
+                    tg.showAlert('Необходимо войти через Telegram');
+                }
+                return;
+            }
+
+            const button = document.querySelector('.btn-apply');
+            const originalText = button.textContent;
+            button.disabled = true;
+            button.textContent = '⏳ Отправляем заявку...';
+
+            try {
+                const response = await fetch('/api/volunteers/apply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
+                    body: JSON.stringify({
+                        event_id: parseInt(eventId)
+                    })
+                });
+
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Заявка подана успешно!');
+                    }
+
+                    applicationStatus = 'pending';
+                    displayActionButtons();
+                } else {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to apply');
+                }
+            } catch (error) {
+                console.error('Error applying to event:', error);
+
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ ' + error.message);
+                }
+
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+
+        function showError(message) {
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorSection').style.display = 'block';
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

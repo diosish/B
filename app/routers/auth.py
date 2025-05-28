@@ -94,6 +94,63 @@ def get_my_profile(
     }
 
 
+@router.delete("/profile")
+def delete_user_profile(
+        telegram_id: int = Query(...),
+        db: Session = Depends(get_db)
+):
+    """Удаление профиля пользователя"""
+
+    print(f"🗑️ Deleting profile for user: {telegram_id}")
+
+    user = crud.get_user_by_telegram_id(db, telegram_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    try:
+        # Удаляем связанные данные
+        # Заявки пользователя
+        db.query(models.Application).filter(models.Application.volunteer_id == user.id).delete()
+
+        # Отзывы о пользователе (если волонтер)
+        db.query(models.Review).filter(models.Review.volunteer_id == user.id).delete()
+
+        # Отзывы, оставленные пользователем (если организатор)
+        db.query(models.Review).filter(models.Review.organizer_id == user.id).delete()
+
+        # Мероприятия пользователя (если организатор)
+        if user.role == "organizer":
+            user_events = db.query(models.Event).filter(models.Event.organizer_id == user.id).all()
+            for event in user_events:
+                # Удаляем заявки на мероприятия
+                db.query(models.Application).filter(models.Application.event_id == event.id).delete()
+                # Удаляем отзывы к мероприятиям
+                db.query(models.Review).filter(models.Review.event_id == event.id).delete()
+
+            # Удаляем сами мероприятия
+            db.query(models.Event).filter(models.Event.organizer_id == user.id).delete()
+
+        # Удаляем самого пользователя
+        db.delete(user)
+        db.commit()
+
+        print(f"✅ Profile deleted successfully for user: {telegram_id}")
+        return {"message": "Profile deleted successfully"}
+
+    except Exception as e:
+        print(f"❌ Error deleting profile: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to delete profile")
+
+
+@router.delete("/my-profile")
+def delete_my_profile(
+        db: Session = Depends(get_db),
+        telegram_user: dict = Depends(get_telegram_user_flexible)
+):
+    """Удаление профиля текущего пользователя"""
+    return delete_user_profile(telegram_user['id'], db)
+
 @router.put("/profile")
 def update_user_profile(
         telegram_id: int = Query(...),

@@ -58,6 +58,10 @@ async def root(request: Request):
     """Главная страница - проверка авторизации и выбор роли"""
     return templates.TemplateResponse("index.html", {"request": request})
 
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard(request: Request):
+    """Админ панель"""
+    return templates.TemplateResponse("admin_dashboard.html", {"request": request})
 
 # ===== СТРАНИЦЫ ВОЛОНТЁРА =====
 @app.get("/volunteer/profile", response_class=HTMLResponse)
@@ -75,7 +79,7 @@ async def volunteer_events_page(request: Request):
 @app.get("/volunteer/applications", response_class=HTMLResponse)
 async def volunteer_applications_page(request: Request):
     """Мои заявки волонтёра"""
-    return templates.TemplateResponse("organizer_applications.html", {"request": request})
+    return templates.TemplateResponse("volunteer_applications.html", {"request": request})
 
 
 # ===== СТРАНИЦЫ ОРГАНИЗАТОРА =====
@@ -90,6 +94,10 @@ async def create_event_page(request: Request):
     """Создание мероприятия"""
     return templates.TemplateResponse("create_event.html", {"request": request})
 
+@app.get("/event/{event_id}", response_class=HTMLResponse)
+async def event_details_page(event_id: int, request: Request):
+    """Страница мероприятия"""
+    return templates.TemplateResponse("event_details.html", {"request": request, "event_id": event_id})
 
 @app.get("/organizer/events", response_class=HTMLResponse)
 async def organizer_events_page(request: Request):

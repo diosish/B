@@ -111,6 +111,15 @@
                         ❌ Отмена
                     </button>
                 </div>
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--tg-theme-hint-color, #eee);">
+                    <button type="button" onclick="deleteProfile()"
+                            style="background: #dc3545; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-size: 12px; width: 100%;">
+                        🗑️ Удалить профиль навсегда
+                    </button>
+                    <small style="color: var(--tg-theme-hint-color, #666); font-size: 10px; display: block; text-align: center; margin-top: 4px;">
+                        Внимание! Это действие нельзя отменить
+                    </small>
+                </div>
             </div>
         </div>
     </div>
@@ -164,6 +173,38 @@
             document.getElementById('userInfoName').textContent =
                 `${currentUser.first_name} ${currentUser.last_name || ''}`.trim();
             document.getElementById('userInfoId').textContent = `ID: ${currentUser.id}`;
+        }
+
+        async function deleteProfile() {
+            const confirmed = confirm('⚠️ ВНИМАНИЕ!\n\nВы действительно хотите удалить свой профиль?\n\nЭто действие нельзя отменить. Будут удалены:\n- Ваш профиль\n- Все ваши заявки\n- Все ваши мероприятия (для организаторов)\n- Все отзывы\n\nПродолжить?');
+
+            if (!confirmed) return;
+
+            const doubleConfirm = confirm('Последнее предупреждение!\n\nВы точно хотите НАВСЕГДА удалить свой профиль?');
+            if (!doubleConfirm) return;
+
+            try {
+                const response = await fetch(`/api/auth/profile?telegram_id=${currentUser.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Профиль удален.\n\nВы будете перенаправлены на главную страницу.');
+                    }
+
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                } else {
+                    throw new Error('Failed to delete profile');
+                }
+            } catch (error) {
+                console.error('Error deleting profile:', error);
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ Ошибка удаления профиля');
+                }
+            }
         }
 
         async function loadProfile() {
