@@ -23,6 +23,8 @@ def list_events(
         db: Session = Depends(get_db)
 ):
     """Получение списка мероприятий с фильтрацией"""
+    print(f"📋 Filtering events with organizer_id: {organizer_id}")
+
     query = db.query(models.Event)
 
     # Фильтр по городу
@@ -31,19 +33,30 @@ def list_events(
 
     # Фильтр по организатору (для получения своих мероприятий)
     if organizer_id:
-        # Находим пользователя по telegram_id (если передан как organizer_id)
-        if organizer_id > 1000000000:  # Это telegram_id
+        print(f"🔍 Looking for organizer with ID: {organizer_id}")
+
+        # Если передан большой ID, это может быть telegram_id
+        if organizer_id > 1000000000:
+            print(f"📱 Treating {organizer_id} as telegram_id")
             db_user = crud.get_user_by_telegram_id(db, organizer_id)
             if db_user:
+                print(f"✅ Found user with internal ID: {db_user.id}")
                 organizer_id = db_user.id
+            else:
+                print(f"❌ User with telegram_id {organizer_id} not found")
+                return []  # Возвращаем пустой список если пользователь не найден
 
         query = query.filter(models.Event.organizer_id == organizer_id)
+        print(f"🎯 Filtering by organizer_id: {organizer_id}")
 
     # Показываем только активные мероприятия для общего списка
     if not organizer_id:
         query = query.filter(models.Event.status == "active")
 
-    return query.offset(skip).limit(limit).all()
+    events = query.order_by(models.Event.created_at.desc()).offset(skip).limit(limit).all()
+    print(f"📊 Found {len(events)} events")
+
+    return events
 
 
 @router.post("/", response_model=schemas.EventResponse)

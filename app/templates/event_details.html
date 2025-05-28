@@ -289,13 +289,23 @@
             if (tg) {
                 tg.ready();
                 tg.expand();
-                currentUser = tg.initDataUnsafe?.user;
+                currentUser = tg.initDataUnsafe?.user || {
+                    id: 123456789,
+                    first_name: 'Test',
+                    last_name: 'User'
+                };
 
                 tg.MainButton.setText('🔙 Назад');
                 tg.MainButton.show();
                 tg.MainButton.onClick(() => {
                     window.history.back();
                 });
+            } else {
+                currentUser = {
+                    id: 123456789,
+                    first_name: 'Test',
+                    last_name: 'User'
+                };
             }
 
             // Получаем ID мероприятия из URL
@@ -307,9 +317,15 @@
                 return;
             }
 
+            console.log(`📋 Loading event ${eventId} for user ${currentUser?.id}`);
+
+            // Загружаем мероприятие
             await loadEvent();
+
+            // Проверяем статус заявки если пользователь авторизован
             if (currentUser) {
                 await checkApplicationStatus();
+                console.log(`🔍 Application status: ${applicationStatus}`);
             }
         }
 
@@ -351,20 +367,47 @@
         }
 
         async function checkApplicationStatus() {
+            if (!currentUser || !eventId) {
+                console.log('❌ No user or event ID for status check');
+                applicationStatus = null;
+                return;
+            }
+
             try {
+                console.log(`🔍 Checking application status for user ${currentUser.id} and event ${eventId}`);
+
                 const response = await fetch(`/api/applications/volunteer/${currentUser.id}`, {
                     headers: getAuthHeaders()
                 });
 
                 if (response.ok) {
                     const applications = await response.json();
-                    const myApplication = applications.find(app => app.event_id == eventId);
+                    console.log(`📋 Found ${applications.length} applications for user ${currentUser.id}`);
+
+                    // Приводим eventId к числу для корректного сравнения
+                    const numericEventId = parseInt(eventId);
+                    console.log(`🎯 Looking for event ID: ${numericEventId}`);
+
+                    const myApplication = applications.find(app => {
+                        const appEventId = parseInt(app.event_id);
+                        console.log(`Comparing app.event_id (${appEventId}) with target eventId (${numericEventId})`);
+                        return appEventId === numericEventId;
+                    });
+
                     if (myApplication) {
                         applicationStatus = myApplication.status;
+                        console.log(`✅ Found application with status: ${applicationStatus} (ID: ${myApplication.id})`);
+                    } else {
+                        applicationStatus = null;
+                        console.log(`❌ No application found for event ${numericEventId}`);
                     }
+                } else {
+                    console.log(`⚠️ Failed to load applications: ${response.status}`);
+                    applicationStatus = null;
                 }
             } catch (error) {
-                console.error('Error checking application status:', error);
+                console.error('❌ Error checking application status:', error);
+                applicationStatus = null;
             }
         }
 
@@ -395,11 +438,13 @@
             // Организатор
             displayOrganizerInfo();
 
-            // Кнопки действий
-            displayActionButtons();
-
             // Контакты (если применимо)
             displayContactInfo();
+
+            // Кнопки действий (вызываем после проверки статуса заявки)
+            displayActionButtons();
+
+            console.log('✅ Event displayed with application status:', applicationStatus);
         }
 
         function displayEventDetails() {
@@ -445,6 +490,7 @@
             `;
         }
 
+        // Исправленная функция displayActionButtons в event_details.html
         function displayActionButtons() {
             const buttonsContainer = document.getElementById('actionButtons');
 
@@ -468,23 +514,43 @@
             }
 
             if (applicationStatus) {
-                const statusMessages = {
-                    'pending': '⏳ Ваша заявка на рассмотрении',
-                    'approved': '✅ Ваша заявка одобрена!',
-                    'rejected': '❌ Ваша заявка отклонена'
-                };
-
-                buttonsContainer.innerHTML = `
-                    <button class="btn-apply btn-applied" disabled>
-                        ${statusMessages[applicationStatus]}
-                    </button>
-                    ${applicationStatus === 'rejected' ? `
+                if (applicationStatus === 'pending') {
+                    // Для заявок на рассмотрении показываем кнопку отзыва
+                    buttonsContainer.innerHTML = `
+                        <button class="btn-apply" style="background: #ffc107; color: #000;" disabled>
+                            ⏳ Ваша заявка на рассмотрении
+                        </button>
+                        <button class="btn-secondary" onclick="withdrawApplication()">
+                            ↩️ Отозвать заявку
+                        </button>
+                        <button class="btn-secondary" onclick="window.history.back()">
+                            ← Назад к списку
+                        </button>
+                    `;
+                } else if (applicationStatus === 'approved') {
+                    buttonsContainer.innerHTML = `
+                        <button class="btn-apply btn-applied" disabled>
+                            ✅ Ваша заявка одобрена!
+                        </button>
+                        <button class="btn-secondary" onclick="window.history.back()">
+                            ← Назад к списку
+                        </button>
+                    `;
+                } else if (applicationStatus === 'rejected') {
+                    buttonsContainer.innerHTML = `
+                        <button class="btn-apply" style="background: #dc3545;" disabled>
+                            ❌ Ваша заявка отклонена
+                        </button>
                         <button class="btn-secondary" onclick="window.location.href='/volunteer/events'">
                             🔍 Найти другие мероприятия
                         </button>
-                    ` : ''}
-                `;
+                        <button class="btn-secondary" onclick="window.history.back()">
+                            ← Назад к списку
+                        </button>
+                    `;
+                }
             } else {
+                // Пользователь еще не подавал заявку
                 buttonsContainer.innerHTML = `
                     <button class="btn-apply" onclick="applyToEvent()">
                         ✋ Подать заявку
@@ -495,6 +561,64 @@
                 `;
             }
         }
+
+        // Новая функция для отзыва заявки
+        async function withdrawApplication() {
+            const confirmed = confirm('Отозвать заявку?\n\nВы сможете подать заявку снова позже.');
+            if (!confirmed) return;
+
+            try {
+                console.log(`🔄 Withdrawing application for event ${eventId}`);
+
+                // Получаем актуальный список заявок
+                const response = await fetch(`/api/applications/volunteer/${currentUser.id}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    const applications = await response.json();
+                    const myApplication = applications.find(app => app.event_id == parseInt(eventId));
+
+                    if (myApplication) {
+                        console.log(`🎯 Found application ID ${myApplication.id} to withdraw`);
+
+                        // Отзываем заявку
+                        const withdrawResponse = await fetch(`/api/applications/${myApplication.id}`, {
+                            method: 'DELETE',
+                            headers: getAuthHeaders()
+                        });
+
+                        if (withdrawResponse.ok) {
+                            console.log('✅ Application withdrawn successfully');
+
+                            if (tg && tg.showAlert) {
+                                tg.showAlert('✅ Заявка отозвана');
+                            }
+
+                            // Сбрасываем статус и обновляем кнопки
+                            applicationStatus = null;
+                            displayActionButtons();
+
+                            // Также обновляем контактную информацию
+                            displayContactInfo();
+                        } else {
+                            const errorData = await withdrawResponse.json();
+                            throw new Error(errorData.detail || 'Failed to withdraw application');
+                        }
+                    } else {
+                        throw new Error('Application not found');
+                    }
+                } else {
+                    throw new Error('Failed to load applications');
+                }
+            } catch (error) {
+                console.error('❌ Error withdrawing application:', error);
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ Ошибка: ' + error.message);
+                }
+            }
+        }
+
 
         function displayContactInfo() {
             if (applicationStatus === 'approved' && eventData.description && eventData.description.includes('📞 Контакты:')) {
@@ -535,18 +659,23 @@
                 });
 
                 if (response.ok) {
+                    console.log('✅ Application submitted successfully');
+
                     if (tg && tg.showAlert) {
                         tg.showAlert('✅ Заявка подана успешно!');
                     }
 
+                    // Немедленно обновляем статус
                     applicationStatus = 'pending';
                     displayActionButtons();
+                    displayContactInfo();
+
                 } else {
                     const errorData = await response.json();
                     throw new Error(errorData.detail || 'Failed to apply');
                 }
             } catch (error) {
-                console.error('Error applying to event:', error);
+                console.error('❌ Error applying to event:', error);
 
                 if (tg && tg.showAlert) {
                     tg.showAlert('❌ ' + error.message);
@@ -556,6 +685,7 @@
                 button.textContent = originalText;
             }
         }
+
 
         function showError(message) {
             document.getElementById('loadingSection').style.display = 'none';

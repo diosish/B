@@ -222,11 +222,27 @@
             return headers;
         }
 
+        // Исправленная функция загрузки мероприятий в organizer_events.html
         async function loadEvents() {
             try {
                 console.log('📡 Loading events for organizer...');
 
-                const response = await fetch(`/api/events/?organizer_id=${currentUser.id}`, {
+                // Сначала получаем внутренний ID пользователя
+                const userResponse = await fetch(`/api/auth/check?telegram_id=${currentUser.id}`, {
+                    headers: getAuthHeaders()
+                });
+
+                if (!userResponse.ok) {
+                    throw new Error('Failed to get user info');
+                }
+
+                const userData = await userResponse.json();
+                if (!userData.registered || userData.user.role !== 'organizer') {
+                    throw new Error('User is not a registered organizer');
+                }
+
+                // Используем внутренний ID для запроса мероприятий
+                const response = await fetch(`/api/events/?organizer_id=${userData.user.id}`, {
                     headers: getAuthHeaders()
                 });
 
@@ -242,7 +258,7 @@
                 document.getElementById('eventsList').innerHTML = `
                     <div class="telegram-card">
                         <div class="no-events">
-                            <p>❌ Ошибка загрузки мероприятий</p>
+                            <p>❌ Ошибка загрузки мероприятий: ${error.message}</p>
                             <button class="action-btn btn-applications" onclick="loadEvents()">🔄 Попробовать снова</button>
                         </div>
                     </div>
@@ -297,7 +313,7 @@
                     <div class="event-stats">
                         <span>🏷️ ${event.work_type || 'Не указан'}</span>
                         <span>⏰ ${event.duration ? event.duration + ' ч' : 'Не указано'}</span>
-                        <span>📋 <span id="applications-count-${event.id}">...</span> заявок</span>
+                        <span>📋 <span id="applications-count-${event.id}">📊</span> заявок</span>
                     </div>
 
                     <div class="event-actions">
@@ -305,7 +321,7 @@
                             ⚙️ Управление
                         </button>
                         <button class="action-btn btn-applications" onclick="viewApplications(${event.id})">
-                            📋 Заявки (${applications_count || 0})
+                            📋 Заявки (<span id="applications-btn-count-${event.id}">...</span>)
                         </button>
                     </div>
                 </div>
@@ -314,6 +330,7 @@
             // Загружаем количество заявок для каждого мероприятия
             events.forEach(event => loadApplicationsCount(event.id));
         }
+
 
         async function deleteEvent(eventId) {
             console.log(`🗑️ Deleting event ${eventId}`);
@@ -389,15 +406,33 @@
 
                 if (response.ok) {
                     const applications = await response.json();
+                    const count = applications.length;
+
+                    // Обновляем оба места где отображается количество
                     const countElement = document.getElementById(`applications-count-${eventId}`);
+                    const btnCountElement = document.getElementById(`applications-btn-count-${eventId}`);
+
                     if (countElement) {
-                        countElement.textContent = applications.length;
+                        countElement.textContent = count;
                     }
+                    if (btnCountElement) {
+                        btnCountElement.textContent = count;
+                    }
+
+                    console.log(`📊 Event ${eventId}: ${count} applications`);
                 }
             } catch (error) {
-                console.error(`Error loading applications count for event ${eventId}:`, error);
+                console.error(`❌ Error loading applications count for event ${eventId}:`, error);
+
+                // В случае ошибки показываем "?"
+                const countElement = document.getElementById(`applications-count-${eventId}`);
+                const btnCountElement = document.getElementById(`applications-btn-count-${eventId}`);
+
+                if (countElement) countElement.textContent = '?';
+                if (btnCountElement) btnCountElement.textContent = '?';
             }
         }
+
 
         function filterEvents(status) {
             currentFilter = status;
