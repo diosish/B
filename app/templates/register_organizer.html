@@ -52,6 +52,14 @@
             text-align: center;
         }
 
+        .error-message {
+            background: #dc3545;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
         #innField {
             display: none;
         }
@@ -59,50 +67,60 @@
 </head>
 <body>
     <div class="container">
-        <div class="user-info">
-            <div id="userName"></div>
-            <small id="userId"></small>
+        <!-- Экран ошибки -->
+        <div id="errorScreen" style="display: none;" class="error-message">
+            <h4>❌ Ошибка</h4>
+            <p id="errorMessage">Не удалось получить данные пользователя</p>
+            <small>Убедитесь, что приложение запущено из Telegram</small>
         </div>
 
-        <div class="telegram-card">
-            <h3>🏢 Регистрация организатора</h3>
-            <p>Заполните информацию об организации</p>
+        <!-- Основной контент -->
+        <div id="mainContent" style="display: none;">
+            <div class="user-info">
+                <div id="userName"></div>
+                <small id="userId"></small>
+            </div>
 
-            <form id="organizerForm">
-                <div class="mb-3">
-                    <label class="form-label">Название организации / ФИО *</label>
-                    <input type="text" class="form-control" id="orgName" required>
-                </div>
+            <div class="telegram-card">
+                <h3>🏢 Регистрация организатора</h3>
+                <p>Заполните информацию об организации</p>
 
-                <div class="mb-3">
-                    <label class="form-label">Тип организации</label>
-                    <select class="form-control" id="orgType" onchange="toggleInnField()">
-                        <option value="физлицо">👤 Физическое лицо</option>
-                        <option value="ИП">🏪 Индивидуальный предприниматель</option>
-                        <option value="ООО">🏢 ООО</option>
-                        <option value="НКО">🤝 НКО</option>
-                    </select>
-                </div>
+                <form id="organizerForm">
+                    <div class="mb-3">
+                        <label class="form-label">Название организации / ФИО *</label>
+                        <input type="text" class="form-control" id="orgName" required>
+                    </div>
 
-                <div class="mb-3" id="innField">
-                    <label class="form-label">ИНН</label>
-                    <input type="text" class="form-control" id="inn" placeholder="1234567890">
-                </div>
+                    <div class="mb-3">
+                        <label class="form-label">Тип организации</label>
+                        <select class="form-control" id="orgType" onchange="toggleInnField()">
+                            <option value="физлицо">👤 Физическое лицо</option>
+                            <option value="ИП">🏪 Индивидуальный предприниматель</option>
+                            <option value="ООО">🏢 ООО</option>
+                            <option value="НКО">🤝 НКО</option>
+                        </select>
+                    </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Город</label>
-                    <input type="text" class="form-control" id="city" placeholder="Москва">
-                </div>
+                    <div class="mb-3" id="innField">
+                        <label class="form-label">ИНН</label>
+                        <input type="text" class="form-control" id="inn" placeholder="1234567890">
+                    </div>
 
-                <div class="mb-3">
-                    <label class="form-label">Описание деятельности</label>
-                    <textarea class="form-control" id="description" rows="3" placeholder="Чем занимается ваша организация..."></textarea>
-                </div>
+                    <div class="mb-3">
+                        <label class="form-label">Город</label>
+                        <input type="text" class="form-control" id="city" placeholder="Москва">
+                    </div>
 
-                <button type="submit" class="telegram-button" id="submitBtn">
-                    ✅ Зарегистрироваться
-                </button>
-            </form>
+                    <div class="mb-3">
+                        <label class="form-label">Описание деятельности</label>
+                        <textarea class="form-control" id="description" rows="3" placeholder="Чем занимается ваша организация..."></textarea>
+                    </div>
+
+                    <button type="submit" class="telegram-button" id="submitBtn">
+                        ✅ Зарегистрироваться
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -113,32 +131,37 @@
         function init() {
             console.log('🚀 Initializing organizer registration...');
 
-            if (tg) {
-                tg.ready();
-                tg.expand();
-
-                currentUser = tg.initDataUnsafe?.user;
-                console.log('📱 Telegram user data:', currentUser);
-
-                tg.MainButton.setText('🏠 На главную');
-                tg.MainButton.show();
-                tg.MainButton.onClick(() => {
-                    window.location.href = '/';
-                });
+            if (!tg) {
+                showError('Приложение должно быть запущено из Telegram');
+                return;
             }
 
-            // Fallback для тестирования
+            tg.ready();
+            tg.expand();
+
+            currentUser = tg.initDataUnsafe?.user;
+
             if (!currentUser) {
-                console.log('⚠️ No Telegram user data, using test data');
-                currentUser = {
-                    id: 123456789,
-                    first_name: 'Test',
-                    last_name: 'User'
-                };
+                showError('Не удалось получить данные пользователя из Telegram');
+                return;
             }
+
+            console.log('📱 Telegram user data:', currentUser);
+
+            tg.MainButton.setText('🏠 На главную');
+            tg.MainButton.show();
+            tg.MainButton.onClick(() => {
+                window.location.href = '/';
+            });
 
             showUserInfo();
             prefillForm();
+            document.getElementById('mainContent').style.display = 'block';
+        }
+
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorScreen').style.display = 'block';
         }
 
         function showUserInfo() {
@@ -166,20 +189,10 @@
         }
 
         function getAuthHeaders() {
-            const headers = {
-                'Content-Type': 'application/json'
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': tg.initData
             };
-
-            // Добавляем заголовок авторизации если есть данные Telegram
-            if (tg && tg.initData) {
-                headers['Authorization'] = tg.initData;
-                console.log('🔐 Added Authorization header');
-            } else {
-                headers['Authorization'] = 'test_data';
-                console.log('🧪 Using test authorization');
-            }
-
-            return headers;
         }
 
         async function handleFormSubmit(e) {
@@ -192,7 +205,6 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '⏳ Регистрируем...';
 
-            // Проверяем обязательные поля
             const orgName = document.getElementById('orgName').value.trim();
             if (!orgName) {
                 showError('Пожалуйста, укажите название организации или ФИО');
@@ -225,14 +237,15 @@
                     const result = await response.json();
                     console.log('✅ Registration successful:', result);
 
-                    showSuccess('✅ Регистрация успешна!');
+                    if (tg.showAlert) {
+                        tg.showAlert('✅ Регистрация успешна!');
+                    }
 
                     setTimeout(() => {
                         window.location.href = '/organizer/profile';
                     }, 1500);
 
                 } else {
-                    // Обрабатываем ошибки сервера
                     let errorMessage = 'Ошибка регистрации';
 
                     try {
@@ -241,7 +254,6 @@
 
                         if (errorData.detail) {
                             if (Array.isArray(errorData.detail)) {
-                                // FastAPI validation errors
                                 errorMessage = errorData.detail.map(err =>
                                     `${err.loc[err.loc.length-1]}: ${err.msg}`
                                 ).join('\n');
@@ -254,32 +266,18 @@
                         errorMessage = `Ошибка сервера (${response.status})`;
                     }
 
-                    showError(errorMessage);
+                    if (tg.showAlert) {
+                        tg.showAlert('❌ ' + errorMessage);
+                    }
                     restoreButton(submitBtn, originalText);
                 }
 
             } catch (error) {
                 console.error('💥 Network error:', error);
-                showError('Ошибка сети: ' + error.message);
+                if (tg.showAlert) {
+                    tg.showAlert('❌ Ошибка сети: ' + error.message);
+                }
                 restoreButton(submitBtn, originalText);
-            }
-        }
-
-        function showError(message) {
-            console.error('Error:', message);
-            if (tg && tg.showAlert) {
-                tg.showAlert('❌ ' + message);
-            } else {
-                alert('❌ ' + message);
-            }
-        }
-
-        function showSuccess(message) {
-            console.log('Success:', message);
-            if (tg && tg.showAlert) {
-                tg.showAlert(message);
-            } else {
-                alert(message);
             }
         }
 
@@ -288,7 +286,6 @@
             button.innerHTML = originalText;
         }
 
-        // Добавляем обработчик формы
         document.addEventListener('DOMContentLoaded', function() {
             init();
             document.getElementById('organizerForm').addEventListener('submit', handleFormSubmit);

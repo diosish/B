@@ -28,7 +28,8 @@ def create_user(db: Session, user: schemas.UserCreate):
             org_type=user.org_type,
             org_name=user.org_name,
             inn=user.inn,
-            description=user.description
+            description=user.description,
+            rating=0.0 if user.role == "volunteer" else None
         )
         db.add(db_user)
         db.commit()
@@ -45,7 +46,7 @@ def get_events(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Event).offset(skip).limit(limit).all()
 
 
-def create_event(db: Session, event: schemas.EventCreate, organizer_id: int):  # ИСПРАВЛЕНО: было schemas.Event
+def create_event(db: Session, event: schemas.EventCreate, organizer_id: int):
     db_event = models.Event(
         title=event.title,
         description=event.description,
@@ -66,7 +67,7 @@ def get_applications_by_volunteer(db: Session, volunteer_id: int):
     return db.query(models.Application).filter(models.Application.volunteer_id == volunteer_id).all()
 
 
-def create_application(db: Session, application: schemas.ApplicationCreate):  # ИСПРАВЛЕНО: было schemas.Application
+def create_application(db: Session, application: schemas.ApplicationCreate):
     db_application = models.Application(
         event_id=application.event_id,
         volunteer_id=application.volunteer_id

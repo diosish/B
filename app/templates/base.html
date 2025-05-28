@@ -135,34 +135,35 @@
         function initTelegram() {
             console.log('Initializing Telegram WebApp...');
 
-            if (tg) {
-                tg.ready();
-                tg.expand();
-
-                // Применяем тему Telegram
-                if (tg.themeParams) {
-                    applyTelegramTheme(tg.themeParams);
-                }
-
-                // Получаем данные пользователя
-                user = tg.initDataUnsafe?.user;
-                if (user) {
-                    showUserInfo(user);
-                } else {
-                    console.warn('No user data available');
-                }
-
-                // Настраиваем главную кнопку
-                tg.MainButton.hide();
-
-                console.log('Telegram WebApp initialized successfully');
-                console.log('User:', user);
-                console.log('Theme:', tg.themeParams);
-            } else {
-                console.warn('Telegram WebApp not available');
-                // Для тестирования без Telegram
-                showTestUser();
+            if (!tg) {
+                console.error('Telegram WebApp not available');
+                showError('Приложение должно быть запущено из Telegram');
+                return;
             }
+
+            tg.ready();
+            tg.expand();
+
+            // Применяем тему Telegram
+            if (tg.themeParams) {
+                applyTelegramTheme(tg.themeParams);
+            }
+
+            // Получаем данные пользователя
+            user = tg.initDataUnsafe?.user;
+            if (user) {
+                showUserInfo(user);
+            } else {
+                console.error('No user data available');
+                showError('Не удалось получить данные пользователя');
+                return;
+            }
+
+            // Настраиваем главную кнопку
+            tg.MainButton.hide();
+
+            console.log('Telegram WebApp initialized successfully');
+            console.log('User:', user);
         }
 
         // Применение темы Telegram
@@ -189,32 +190,44 @@
             }
         }
 
-        // Тестовый пользователь для разработки
-        function showTestUser() {
-            showUserInfo({
-                id: 123456789,
-                first_name: 'Test',
-                last_name: 'User'
-            });
+        // Показать ошибку
+        function showError(message) {
+            if (tg && tg.showAlert) {
+                tg.showAlert(message);
+            } else {
+                alert(message);
+            }
         }
 
         // Навигация
         function openVolunteerPage() {
+            if (!user) {
+                showError('Данные пользователя недоступны');
+                return;
+            }
             window.location.href = '/volunteer';
         }
 
         function openOrganizerPage() {
+            if (!user) {
+                showError('Данные пользователя недоступны');
+                return;
+            }
             window.location.href = '/organizer';
         }
 
         // Отправка данных в API
         async function sendToAPI(endpoint, data) {
+            if (!tg || !tg.initData) {
+                throw new Error('Telegram data not available');
+            }
+
             try {
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': tg.initData || 'test_data'
+                        'Authorization': tg.initData
                     },
                     body: JSON.stringify(data)
                 });
@@ -226,14 +239,13 @@
                 return await response.json();
             } catch (error) {
                 console.error('API Error:', error);
-                tg.showAlert(`Ошибка: ${error.message}`);
                 throw error;
             }
         }
 
         // Показать уведомление
         function showNotification(message, isError = false) {
-            if (tg.showAlert) {
+            if (tg && tg.showAlert) {
                 tg.showAlert(message);
             } else {
                 alert(message);

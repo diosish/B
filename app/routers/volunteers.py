@@ -1,4 +1,4 @@
-from fastapi import Body, APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -6,30 +6,51 @@ from .. import crud, models, schemas
 from ..database import get_db
 from ..auth import get_telegram_user_flexible
 from ..bot import notify_new_application
-from ..schemas import UserCreate
 
 router = APIRouter()
 
 
 @router.post("/register", response_model=schemas.UserResponse)
 def register_volunteer(
-        user_data: schemas.UserCreate,
+        registration_data: schemas.VolunteerRegistration,
         db: Session = Depends(get_db),
         telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
     """Регистрация волонтёра через Telegram"""
 
     print(f"👥 Registering volunteer: {telegram_user['id']}")
-    print(f"📊 Received user data: {user_data}")
+    print(f"📊 Received registration data: {registration_data}")
 
-    # Создаем новый объект UserCreate с полными данными
+    # Проверяем, не зарегистрирован ли уже пользователь
+    db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
+
+    if db_user:
+        print(f"👤 User already exists, updating: {db_user.id}")
+        # Обновляем существующего пользователя
+        db_user.full_name = registration_data.full_name
+        db_user.city = registration_data.city
+        db_user.volunteer_type = registration_data.volunteer_type
+        db_user.skills = registration_data.skills
+        db_user.role = "volunteer"
+
+        # Обнуляем поля организатора
+        db_user.org_type = None
+        db_user.org_name = None
+        db_user.inn = None
+        db_user.description = None
+
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+
+    # Создаем нового пользователя
     create_data = schemas.UserCreate(
-        telegram_id=telegram_user['id'],  # Берем из Telegram данных
-        full_name=telegram_user['first_name'] + telegram_user['last_name'],
-        city=user_data.city,
+        telegram_id=telegram_user['id'],
+        full_name=registration_data.full_name,
+        city=registration_data.city,
         role="volunteer",
-        volunteer_type=telegram_user['volunteer_type'],
-        skills=telegram_user['skills'],
+        volunteer_type=registration_data.volunteer_type,
+        skills=registration_data.skills,
         # Обнуляем поля организатора
         org_type=None,
         org_name=None,
@@ -111,8 +132,3 @@ async def apply_to_event(
         print(f"❌ Failed to send notification to organizer: {e}")
 
     return db_application
-
-
-@router.get("/test")
-def test_volunteers():
-    return {"message": "Volunteers API is working", "status": "ok"}

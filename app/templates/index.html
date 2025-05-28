@@ -58,6 +58,14 @@
             border-radius: 8px;
             margin-bottom: 15px;
         }
+
+        .error-message {
+            background: #dc3545;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
@@ -66,6 +74,13 @@
         <div id="loadingScreen" class="telegram-card">
             <div class="loading-spinner"></div>
             <p>Проверяем регистрацию...</p>
+        </div>
+
+        <!-- Экран ошибки -->
+        <div id="errorScreen" style="display: none;" class="error-message">
+            <h4>❌ Ошибка</h4>
+            <p id="errorMessage">Не удалось получить данные пользователя</p>
+            <small>Убедитесь, что приложение запущено из Telegram</small>
         </div>
 
         <!-- Экран для зарегистрированного пользователя -->
@@ -115,29 +130,39 @@
         let currentUser = null;
 
         function init() {
-            if (tg) {
-                tg.ready();
-                tg.expand();
-                currentUser = tg.initDataUnsafe?.user || {
-                    id: 123456789,
-                    first_name: 'Test',
-                    last_name: 'User'
-                };
-            } else {
-                currentUser = {
-                    id: 123456789,
-                    first_name: 'Test',
-                    last_name: 'User'
-                };
+            if (!tg) {
+                showError('Приложение должно быть запущено из Telegram');
+                return;
+            }
+
+            tg.ready();
+            tg.expand();
+
+            currentUser = tg.initDataUnsafe?.user;
+
+            if (!currentUser) {
+                showError('Не удалось получить данные пользователя из Telegram');
+                return;
             }
 
             console.log('Current user:', currentUser);
             checkRegistration();
         }
 
+        function showError(message) {
+            document.getElementById('loadingScreen').style.display = 'none';
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorScreen').style.display = 'block';
+        }
+
         async function checkRegistration() {
             try {
-                const response = await fetch(`/api/auth/check?telegram_id=${currentUser.id}`);
+                const response = await fetch(`/api/auth/check?telegram_id=${currentUser.id}`, {
+                    headers: {
+                        'Authorization': tg.initData
+                    }
+                });
+
                 const data = await response.json();
 
                 console.log('Registration check:', data);
@@ -156,8 +181,7 @@
                 }
             } catch (error) {
                 console.error('Error checking registration:', error);
-                // При ошибке API показываем экран нового пользователя
-                showNewUserScreen();
+                showError('Ошибка подключения к серверу');
             }
         }
 

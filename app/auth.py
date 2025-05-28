@@ -7,37 +7,9 @@ from typing import Optional
 import os
 
 
-def extract_telegram_user_from_init_data(init_data: str) -> Optional[dict]:
-    """Извлечение данных пользователя из init_data без проверки подписи"""
-    try:
-        if not init_data:
-            return None
-
-        parsed_data = dict(parse_qsl(init_data))
-        user_data = parsed_data.get('user')
-
-        if not user_data:
-            return None
-
-        user_info = json.loads(unquote(user_data))
-
-        return {
-            'id': user_info.get('id'),
-            'first_name': user_info.get('first_name', ''),
-            'last_name': user_info.get('last_name', ''),
-            'username': user_info.get('username', ''),
-            'language_code': user_info.get('language_code', 'ru'),
-            'is_premium': user_info.get('is_premium', False)
-        }
-    except Exception as e:
-        print(f"Error extracting user data: {e}")
-        return None
-
-
 def verify_telegram_auth(init_data: str) -> dict:
     """Проверка подлинности данных Telegram WebApp"""
     try:
-        # Продакшн режим - полная проверка
         parsed_data = dict(parse_qsl(init_data))
         hash_value = parsed_data.pop('hash', None)
 
@@ -86,16 +58,12 @@ def verify_telegram_auth(init_data: str) -> dict:
 
     except Exception as e:
         print(f"❌ Auth error: {e}")
-
-        raise HTTPException(status_code=401, detail=f"Invalid auth data: {str(e)}")
-
-
-def get_telegram_user(authorization):
-    """Получение данных пользователя из заголовка"""
-
-    return verify_telegram_auth(authorization)
+        raise HTTPException(status_code=401, detail=f"Authentication failed")
 
 
-def get_telegram_user_flexible(authorization: Optional[str] = Header()):
-    """Более гибкая версия получения пользователя - всегда возвращает результат"""
+def get_telegram_user_flexible(authorization: Optional[str] = Header(None)):
+    """Получение данных пользователя из заголовка авторизации"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Authorization header required")
+
     return verify_telegram_auth(authorization)

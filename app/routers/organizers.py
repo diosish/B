@@ -11,14 +11,14 @@ router = APIRouter()
 
 @router.post("/register", response_model=schemas.UserResponse)
 def register_organizer(
-        user_data: schemas.UserCreate,
+        registration_data: schemas.OrganizerRegistration,
         db: Session = Depends(get_db),
         telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
     """Регистрация организатора через Telegram"""
 
-    print(f"🏢 Registering organizer: {telegram_user}")
-    print(f"📊 Received user data: {user_data}")
+    print(f"🏢 Registering organizer: {telegram_user['id']}")
+    print(f"📊 Received registration data: {registration_data}")
 
     # Проверяем, не зарегистрирован ли уже пользователь
     db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
@@ -26,45 +26,36 @@ def register_organizer(
     if db_user:
         print(f"👤 User already exists, updating: {db_user.id}")
         # Обновляем существующего пользователя
-        if user_data.full_name:
-            db_user.full_name = user_data.full_name
-        if user_data.city:
-            db_user.city = user_data.city
-        if user_data.org_type:
-            db_user.org_type = user_data.org_type
-        if user_data.org_name:
-            db_user.org_name = user_data.org_name
-        if user_data.inn:
-            db_user.inn = user_data.inn
-        if user_data.description:
-            db_user.description = user_data.description
-
-        # Убеждаемся что роль правильная
+        db_user.full_name = registration_data.full_name
+        db_user.city = registration_data.city
+        db_user.org_type = registration_data.org_type
+        db_user.org_name = registration_data.org_name
+        db_user.inn = registration_data.inn
+        db_user.description = registration_data.description
         db_user.role = "organizer"
+
+        # Обнуляем поля волонтёра
+        db_user.volunteer_type = None
+        db_user.skills = None
 
         db.commit()
         db.refresh(db_user)
         return db_user
 
-    # Создаем объект UserCreate с правильными данными
-    full_name = user_data.full_name
-    if not full_name:
-        full_name = f"{telegram_user['first_name']} {telegram_user['last_name'] or ''}".strip()
-
-    # Создаем новый объект UserCreate с полными данными
+    # Создаем нового пользователя
     create_data = schemas.UserCreate(
-        telegram_id=telegram_user['id'],  # Берем из Telegram данных
-        full_name=full_name,
-        city=user_data.city,
+        telegram_id=telegram_user['id'],
+        full_name=registration_data.full_name,
+        city=registration_data.city,
         role="organizer",
         # Обнуляем поля волонтёра
         volunteer_type=None,
         skills=None,
         # Заполняем поля организатора
-        org_type=user_data.org_type,
-        org_name=user_data.org_name,
-        inn=user_data.inn,
-        description=user_data.description
+        org_type=registration_data.org_type,
+        org_name=registration_data.org_name,
+        inn=registration_data.inn,
+        description=registration_data.description
     )
 
     print(f"➕ Creating new organizer user with data: {create_data}")
@@ -94,8 +85,3 @@ def get_my_events(
         return []
 
     return db.query(models.Event).filter(models.Event.organizer_id == db_user.id).all()
-
-
-@router.get("/test")
-def test_organizers():
-    return {"message": "Organizers API is working", "status": "ok"}

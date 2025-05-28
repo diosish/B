@@ -23,22 +23,34 @@ class ApplicationStatus(str, Enum):
     rejected = "rejected"
 
 
-# User schemas
-class UserBase(BaseModel):
-    telegram_id: int
-    first_name: str
-    last_name: str
-    city: Optional[str] = ''
-
-
-class UserCreate(UserBase):
-    role: str = "volunteer"
-    full_name: Optional[str] = None
+# User schemas для регистрации (без telegram_id)
+class VolunteerRegistration(BaseModel):
+    full_name: str
     city: Optional[str] = None
-    volunteer_type: Optional[str] = None
+    volunteer_type: str
+    skills: Optional[str] = None
+
+
+class OrganizerRegistration(BaseModel):
+    full_name: str
+    city: Optional[str] = None
+    org_type: str
+    org_name: Optional[str] = None
+    inn: Optional[str] = None
+    description: Optional[str] = None
+
+
+# Внутренние схемы для создания пользователя в БД
+class UserCreate(BaseModel):
+    telegram_id: int  # Поддерживает большие числа
+    full_name: str
+    city: Optional[str] = None
+    role: str = "volunteer"
 
     # Поля волонтёра
+    volunteer_type: Optional[str] = None
     skills: Optional[str] = None
+
     # Поля организатора
     org_type: Optional[str] = None
     org_name: Optional[str] = None
@@ -57,8 +69,11 @@ class UserUpdate(BaseModel):
     description: Optional[str] = None
 
 
-class UserResponse(UserBase):
+class UserResponse(BaseModel):
     id: int
+    telegram_id: int  # Поддерживает большие числа
+    full_name: str
+    city: Optional[str] = None
     role: str
     created_at: datetime
     is_active: bool = True
@@ -75,9 +90,9 @@ class UserResponse(UserBase):
     inn: Optional[str] = None
     description: Optional[str] = None
 
-class Config:
-    from_attributes = True
-    orm_mode = True
+    class Config:
+        from_attributes = True
+        orm_mode = True
 
 
 # Event schemas

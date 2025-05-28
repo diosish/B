@@ -29,7 +29,6 @@ services:
       BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
       WEBAPP_URL: https://0f8f-146-70-139-6.ngrok-free.app/
       SECRET_KEY: SECRET_KEY
-      ENVIRONMENT: development
     volumes:
       - .:/app
     command: >
@@ -51,7 +50,6 @@ services:
       DATABASE_URL: postgresql://volunteer_user:your_password@db:5432/volunteer_db
       BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
       WEBAPP_URL: https://0f8f-146-70-139-6.ngrok-free.app/
-      ENVIRONMENT: development
     volumes:
       - .:/app
     command: >

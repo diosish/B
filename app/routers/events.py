@@ -180,7 +180,3 @@ def delete_event(
 
     return {"message": "Event deleted successfully"}
 
-
-@router.get("/test")
-def test_events():
-    return {"message": "Events API is working", "status": "ok"}

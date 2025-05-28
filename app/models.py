@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Text, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, DateTime, Float, Boolean, Text, ForeignKey, Table, BigInteger
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -29,7 +29,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
-    telegram_id = Column(Integer, unique=True, nullable=False)
+    telegram_id = Column(BigInteger, unique=True, nullable=False)  # Изменено с Integer на BigInteger
     full_name = Column(String(255), nullable=False)
     city = Column(String(100))
     role = Column(String(20), default="volunteer")  # Упрощено: строка вместо enum
