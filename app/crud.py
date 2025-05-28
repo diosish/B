@@ -19,7 +19,7 @@ def get_user_by_telegram_id(db: Session, telegram_id: int):
         raise
 
 
-def create_user(db: Session, user: schemas.User):
+def create_user(db: Session, user: schemas.UserCreate):
     """Создание нового пользователя"""
     try:
         print(f"Creating user with data: telegram_id={user.telegram_id}")
@@ -50,7 +50,7 @@ def get_events(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Event).offset(skip).limit(limit).all()
 
 
-def create_event(db: Session, event: schemas.Event, organizer_id: int):
+def create_event(db: Session, event: schemas.EventCreate, organizer_id: int):
     db_event = models.Event(
         title=event.title,
         description=event.description,
@@ -71,7 +71,7 @@ def get_applications_by_volunteer(db: Session, volunteer_id: int):
     return db.query(models.Application).filter(models.Application.volunteer_id == volunteer_id).all()
 
 
-def create_application(db: Session, application: schemas.Application):
+def create_application(db: Session, application: schemas.ApplicationCreate):
     db_application = models.Application(
         event_id=application.event_id,
         volunteer_id=application.volunteer_id
