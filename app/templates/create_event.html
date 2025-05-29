@@ -5,375 +5,879 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Создать мероприятие</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="/static/css/navigation.css" rel="stylesheet">
+    <link href="/static/css/unified-styles.css" rel="stylesheet">
+
     <style>
-        body {
-            background: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 0;
-            padding: 10px;
+        /* Специфичные стили для формы создания мероприятия */
+        .form-wizard {
+            position: relative;
         }
 
-        .telegram-card {
-            background: var(--tg-theme-bg-color, #ffffff);
-            border: 1px solid var(--tg-theme-hint-color, #999999);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        .wizard-progress {
+            display: flex;
+            justify-content: center;
+            margin-bottom: var(--spacing-xl);
+            position: relative;
         }
 
-        .telegram-button {
-            background: var(--tg-theme-button-color, #2678b6);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            border-radius: 8px;
-            padding: 12px 24px;
-            font-size: 16px;
-            cursor: pointer;
-            width: 100%;
-            margin-bottom: 8px;
+        .progress-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            flex: 1;
+            max-width: 120px;
         }
 
-        .form-control, .form-select {
-            border-radius: 8px;
-            border: 1px solid var(--tg-theme-hint-color, #999999);
-            padding: 12px;
-            margin-bottom: 12px;
-            background: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
+        .progress-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 60%;
+            right: -40%;
+            height: 2px;
+            background: var(--tg-theme-hint-color);
+            z-index: 1;
         }
 
-        .user-info {
-            background: var(--tg-theme-button-color, #2678b6);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 15px;
+        .progress-step.completed::after {
+            background: var(--color-success);
+        }
+
+        .step-indicator {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--tg-theme-hint-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-bottom: var(--spacing-xs);
+            position: relative;
+            z-index: 2;
+            transition: all var(--transition-fast);
+        }
+
+        .progress-step.active .step-indicator {
+            background: var(--tg-theme-button-color);
+            transform: scale(1.1);
+        }
+
+        .progress-step.completed .step-indicator {
+            background: var(--color-success);
+        }
+
+        .step-label {
+            font-size: var(--font-size-xs);
+            color: var(--tg-theme-hint-color);
             text-align: center;
+            line-height: 1.2;
         }
 
-        .required {
-            color: #dc3545;
+        .progress-step.active .step-label {
+            color: var(--tg-theme-text-color);
+            font-weight: 500;
         }
 
-        .form-help {
-            font-size: 12px;
-            color: var(--tg-theme-hint-color, #999999);
-            margin-top: -8px;
-            margin-bottom: 12px;
+        .wizard-step {
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .wizard-step.active {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .form-section {
+            margin-bottom: var(--spacing-xl);
+        }
+
+        .section-title {
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            color: var(--tg-theme-text-color);
+            margin-bottom: var(--spacing-md);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: var(--spacing-md);
+        }
+
+        .form-grid.single {
+            grid-template-columns: 1fr;
+        }
+
+        .char-counter {
+            font-size: var(--font-size-xs);
+            color: var(--tg-theme-hint-color);
+            text-align: right;
+            margin-top: var(--spacing-xs);
+        }
+
+        .char-counter.warning {
+            color: var(--color-warning);
+        }
+
+        .char-counter.error {
+            color: var(--color-danger);
+        }
+
+        .form-preview {
+            background: var(--tg-theme-secondary-bg-color);
+            border: 2px dashed var(--tg-theme-hint-color);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-lg);
+            margin: var(--spacing-lg) 0;
+        }
+
+        .preview-title {
+            font-size: var(--font-size-md);
+            font-weight: 600;
+            margin-bottom: var(--spacing-sm);
+            color: var(--tg-theme-text-color);
+        }
+
+        .preview-content {
+            font-size: var(--font-size-sm);
+            color: var(--tg-theme-hint-color);
+            line-height: 1.4;
+        }
+
+        .wizard-navigation {
+            display: flex;
+            gap: var(--spacing-sm);
+            margin-top: var(--spacing-xl);
+            padding-top: var(--spacing-lg);
+            border-top: 1px solid var(--tg-theme-hint-color);
+        }
+
+        .btn-wizard {
+            flex: 1;
+        }
+
+        .requirements-list {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid var(--color-warning);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            margin: var(--spacing-md) 0;
+        }
+
+        .requirements-list h4 {
+            margin: 0 0 var(--spacing-sm) 0;
+            color: #856404;
+            font-size: var(--font-size-sm);
+        }
+
+        .requirements-list ul {
+            margin: 0;
+            padding-left: var(--spacing-lg);
+            font-size: var(--font-size-sm);
+            color: #856404;
+        }
+
+        .quick-preset {
+            display: flex;
+            gap: var(--spacing-xs);
+            flex-wrap: wrap;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .preset-btn {
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border: 1px solid var(--tg-theme-hint-color);
+            border-radius: var(--radius-md);
+            background: var(--tg-theme-bg-color);
+            color: var(--tg-theme-text-color);
+            font-size: var(--font-size-xs);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .preset-btn:hover {
+            background: var(--tg-theme-button-color);
+            color: var(--tg-theme-button-text-color);
+            border-color: var(--tg-theme-button-color);
+        }
+
+        .form-tips {
+            background: rgba(23, 162, 184, 0.1);
+            border-left: 4px solid var(--color-info);
+            padding: var(--spacing-md);
+            margin: var(--spacing-md) 0;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+        }
+
+        .form-tips h4 {
+            margin: 0 0 var(--spacing-xs) 0;
+            color: var(--color-info);
+            font-size: var(--font-size-sm);
+        }
+
+        .form-tips p {
+            margin: 0;
+            font-size: var(--font-size-sm);
+            color: var(--tg-theme-hint-color);
+        }
+
+        @media (max-width: 480px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .wizard-progress {
+                margin-bottom: var(--spacing-lg);
+            }
+
+            .progress-step {
+                max-width: 80px;
+            }
+
+            .step-indicator {
+                width: 32px;
+                height: 32px;
+                font-size: var(--font-size-xs);
+            }
+
+            .step-label {
+                font-size: 10px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container content-with-nav">
-        <div class="user-info">
-            <div id="userInfoName"></div>
-            <small id="userInfoRole">🏢 Организатор</small>
-        </div>
-
-        <div class="telegram-card">
-            <h3>➕ Создать мероприятие</h3>
-            <p>Заполните информацию о вашем мероприятии</p>
-
-            <form id="eventForm">
-                <div class="mb-3">
-                    <label class="form-label">Название мероприятия <span class="required">*</span></label>
-                    <input type="text" class="form-control" id="eventTitle" required
-                           placeholder="Помощь на выставке, промо-акция и т.д.">
-                    <div class="form-help">Краткое и понятное название</div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Описание</label>
-                    <textarea class="form-control" id="eventDescription" rows="4"
-                              placeholder="Подробно опишите задачи, требования, условия работы..."></textarea>
-                    <div class="form-help">Чем подробнее описание, тем больше откликов</div>
-                </div>
-
-                <div class="row">
-                    <div class="col-6">
-                        <div class="mb-3">
-                            <label class="form-label">Город <span class="required">*</span></label>
-                            <input type="text" class="form-control" id="eventCity" required placeholder="Москва">
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="mb-3">
-                            <label class="form-label">Оплата (₽) <span class="required">*</span></label>
-                            <input type="number" class="form-control" id="eventPayment" required
-                                   min="0" step="100" placeholder="1000">
-                            <div class="form-help">Оплата за весь период</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-7">
-                        <div class="mb-3">
-                            <label class="form-label">Дата и время</label>
-                            <input type="datetime-local" class="form-control" id="eventDate">
-                            <div class="form-help">Оставьте пустым, если дата гибкая</div>
-                        </div>
-                    </div>
-                    <div class="col-5">
-                        <div class="mb-3">
-                            <label class="form-label">Длительность (ч)</label>
-                            <input type="number" class="form-control" id="eventDuration"
-                                   min="1" max="24" placeholder="8">
-                            <div class="form-help">Рабочих часов</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Тип работы <span class="required">*</span></label>
-                    <select class="form-select" id="workType" required>
-                        <option value="">Выберите тип работы</option>
-                        <option value="регистрация">📝 Регистрация участников</option>
-                        <option value="логистика">📦 Логистика и координация</option>
-                        <option value="техническое">🔧 Техническая поддержка</option>
-                        <option value="информационное">💬 Информационная поддержка</option>
-                        <option value="промо">📢 Промо и реклама</option>
-                        <option value="обслуживание">🍽️ Обслуживание</option>
-                        <option value="другое">🔹 Другое</option>
-                    </select>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Дополнительные требования</label>
-                    <textarea class="form-control" id="eventRequirements" rows="2"
-                              placeholder="Опыт работы, навыки, дресс-код..."></textarea>
-                </div>
-
-                <div class="mb-3">
-                    <label class="form-label">Контактная информация</label>
-                    <textarea class="form-control" id="eventContact" rows="2"
-                              placeholder="Телефон, email, Telegram для связи..."></textarea>
-                    <div class="form-help">Эта информация будет видна только одобренным волонтёрам</div>
-                </div>
-
-                <button type="submit" class="telegram-button" id="submitBtn">
-                    🚀 Создать мероприятие
-                </button>
-            </form>
-        </div>
-
-        <div class="telegram-card">
-            <h6>💡 Советы для лучшего результата</h6>
-            <ul style="font-size: 14px; color: var(--tg-theme-hint-color, #666);">
-                <li>Укажите честную оплату - это основной мотиватор</li>
-                <li>Опишите задачи подробно, избегайте неопределенности</li>
-                <li>Добавьте контакты для быстрой связи</li>
-                <li>Указывайте реальные сроки и требования</li>
-            </ul>
-        </div>
+    <!-- Шапка страницы -->
+    <div class="page-header">
+        <h1 class="page-title">➕ Создать мероприятие</h1>
+        <p class="page-subtitle">Найдите помощников для вашего события</p>
     </div>
 
-    <div class="navigation-menu">
-        <button class="nav-btn" onclick="nav.goToOrganizerProfile()">👤 Профиль</button>
-        <button class="nav-btn active" onclick="nav.goToCreateEvent()">➕ Создать</button>
-        <button class="nav-btn" onclick="nav.goToOrganizerEvents()">📋 События</button>
-    </div>
-    <script src="/static/js/role-guard.js"></script>
-    <script src="/static/js/auth.js"></script>
+    <form id="eventForm" class="form-wizard">
+        <!-- Прогресс-бар -->
+        <div class="wizard-progress">
+            <div class="progress-step active" data-step="1">
+                <div class="step-indicator">1</div>
+                <div class="step-label">Основное</div>
+            </div>
+            <div class="progress-step" data-step="2">
+                <div class="step-indicator">2</div>
+                <div class="step-label">Детали</div>
+            </div>
+            <div class="progress-step" data-step="3">
+                <div class="step-indicator">3</div>
+                <div class="step-label">Контакты</div>
+            </div>
+            <div class="progress-step" data-step="4">
+                <div class="step-indicator">✓</div>
+                <div class="step-label">Готово</div>
+            </div>
+        </div>
+
+        <!-- Шаг 1: Основная информация -->
+        <div class="wizard-step active" data-step="1">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">📝 Основная информация</h2>
+                </div>
+                <div class="card-body">
+                    <div class="form-section">
+                        <div class="form-group">
+                            <label class="form-label required">Название мероприятия</label>
+                            <input type="text" class="form-input" id="eventTitle" required
+                                   placeholder="Например: Помощь на выставке технологий" maxlength="100">
+                            <div class="char-counter" id="titleCounter">0/100</div>
+                            <div class="form-help">Краткое и понятное название, которое привлечет волонтёров</div>
+                        </div>
+
+                        <div class="form-tips">
+                            <h4>💡 Советы для названия</h4>
+                            <p>Используйте конкретные слова: "помощь на выставке" вместо "нужна помощь". Укажите тип события и задачи.</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label required">Тип работы</label>
+                            <select class="form-input" id="workType" required>
+                                <option value="">Выберите тип работы</option>
+                                <option value="регистрация">📝 Регистрация участников</option>
+                                <option value="логистика">📦 Логистика и координация</option>
+                                <option value="техническое">🔧 Техническая поддержка</option>
+                                <option value="информационное">💬 Информационная поддержка</option>
+                                <option value="промо">📢 Промо и реклама</option>
+                                <option value="обслуживание">🍽️ Обслуживание гостей</option>
+                                <option value="другое">🔹 Другое</option>
+                            </select>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label required">Город</label>
+                                <input type="text" class="form-input" id="eventCity" required
+                                       placeholder="Москва" list="cityList">
+                                <datalist id="cityList">
+                                    <option value="Москва">
+                                    <option value="Санкт-Петербург">
+                                    <option value="Новосибирск">
+                                    <option value="Екатеринбург">
+                                    <option value="Казань">
+                                    <option value="Нижний Новгород">
+                                </datalist>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label required">Оплата (₽)</label>
+                                <input type="number" class="form-input" id="eventPayment" required
+                                       min="0" step="100" placeholder="1000">
+                                <div class="form-help">Указывайте честную оплату - это главный мотиватор</div>
+                            </div>
+                        </div>
+
+                        <div class="quick-preset">
+                            <span style="font-size: var(--font-size-sm); color: var(--tg-theme-hint-color);">Быстрые суммы:</span>
+                            <button type="button" class="preset-btn" data-payment="500">500₽</button>
+                            <button type="button" class="preset-btn" data-payment="1000">1000₽</button>
+                            <button type="button" class="preset-btn" data-payment="1500">1500₽</button>
+                            <button type="button" class="preset-btn" data-payment="2000">2000₽</button>
+                            <button type="button" class="preset-btn" data-payment="3000">3000₽</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Шаг 2: Детали мероприятия -->
+        <div class="wizard-step" data-step="2">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">⏰ Время и описание</h2>
+                </div>
+                <div class="card-body">
+                    <div class="form-section">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Дата и время</label>
+                                <input type="datetime-local" class="form-input" id="eventDate">
+                                <div class="form-help">Оставьте пустым, если дата гибкая</div>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Длительность (часов)</label>
+                                <input type="number" class="form-input" id="eventDuration"
+                                       min="1" max="24" placeholder="8">
+                                <div class="form-help">Примерное время работы</div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Описание мероприятия</label>
+                            <textarea class="form-input" id="eventDescription" rows="5" maxlength="1000"
+                                      placeholder="Подробно опишите:
+• Что за мероприятие
+• Какие задачи будут у волонтёров
+• Какие навыки приветствуются
+• Условия работы и льготы"></textarea>
+                            <div class="char-counter" id="descriptionCounter">0/1000</div>
+                            <div class="form-help">Чем подробнее описание, тем больше качественных откликов</div>
+                        </div>
+
+                        <div class="form-tips">
+                            <h4>💡 Что включить в описание</h4>
+                            <p>Опишите атмосферу события, какие навыки нужны, что волонтёр получит кроме оплаты (опыт, сертификат, питание).</p>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Дополнительные требования</label>
+                            <textarea class="form-input" id="eventRequirements" rows="3" maxlength="500"
+                                      placeholder="Например:
+• Опыт работы с людьми
+• Знание английского языка
+• Дресс-код: деловой стиль
+• Собственный транспорт"></textarea>
+                            <div class="char-counter" id="requirementsCounter">0/500</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Шаг 3: Контакты -->
+        <div class="wizard-step" data-step="3">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">📞 Контактная информация</h2>
+                </div>
+                <div class="card-body">
+                    <div class="form-section">
+                        <div class="requirements-list">
+                            <h4>🔒 Безопасность контактов</h4>
+                            <ul>
+                                <li>Контакты видны только одобренным волонтёрам</li>
+                                <li>Рекомендуем указать рабочий номер или Telegram</li>
+                                <li>Не публикуйте личные данные в описании</li>
+                            </ul>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Контакты для связи с волонтёрами</label>
+                            <textarea class="form-input" id="eventContact" rows="3" maxlength="300"
+                                      placeholder="Например:
+📱 +7 (999) 123-45-67 (WhatsApp)
+📧 events@company.ru
+💬 @username (Telegram)
+
+Звонить с 9:00 до 18:00"></textarea>
+                            <div class="char-counter" id="contactCounter">0/300</div>
+                            <div class="form-help">Укажите удобные способы связи и время для контакта</div>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Адрес проведения (если нужен)</label>
+                            <input type="text" class="form-input" id="eventAddress"
+                                   placeholder="ул. Примерная, 123, БЦ 'Пример', 5 этаж">
+                            <div class="form-help">Точный адрес будет виден только одобренным волонтёрам</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Шаг 4: Предпросмотр и создание -->
+        <div class="wizard-step" data-step="4">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="section-title">👁️ Предпросмотр</h2>
+                </div>
+                <div class="card-body">
+                    <div class="form-preview" id="eventPreview">
+                        <!-- Здесь будет предпросмотр -->
+                    </div>
+
+                    <div class="form-tips">
+                        <h4>🚀 Готовы к публикации?</h4>
+                        <p>После создания мероприятие станет видно всем волонтёрам. Вы сможете просматривать заявки и выбирать подходящих кандидатов.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Навигация по шагам -->
+        <div class="wizard-navigation">
+            <button type="button" class="btn btn-secondary btn-wizard" id="prevBtn" style="display: none;">
+                ← Назад
+            </button>
+            <button type="button" class="btn btn-primary btn-wizard" id="nextBtn">
+                Далее →
+            </button>
+            <button type="submit" class="btn btn-success btn-wizard" id="submitBtn" style="display: none;">
+                🚀 Создать мероприятие
+            </button>
+        </div>
+    </form>
+
+    <!-- Навигация -->
+    <nav class="bottom-nav">
+        <a href="/organizer/profile" class="nav-item">
+            <span class="nav-icon">👤</span>
+            <span class="nav-label">Профиль</span>
+        </a>
+        <a href="/organizer/create-event" class="nav-item active">
+            <span class="nav-icon">➕</span>
+            <span class="nav-label">Создать</span>
+        </a>
+        <a href="/organizer/events" class="nav-item">
+            <span class="nav-icon">📋</span>
+            <span class="nav-label">События</span>
+        </a>
+    </nav>
+
+    <script src="/static/js/form-validator.js"></script>
     <script src="/static/js/navigation.js"></script>
     <script>
-        let tg = window.Telegram?.WebApp;
-        let currentUser = null;
+        class EventCreationWizard {
+            constructor() {
+                this.currentStep = 1;
+                this.totalSteps = 4;
+                this.formData = {};
+                this.validator = window.formValidator;
 
-        async function init() {
-            const roleCheckPassed = await roleGuard.init();
-            if (!roleCheckPassed || !roleGuard.checkOrganizerAccess()) {
-                return;
-            }
-            console.log('🎯 Initializing event creation page...');
-
-            if (tg) {
-                tg.ready();
-                tg.expand();
-                currentUser = tg.initDataUnsafe?.user || {
-                    id: 123456789,
-                    first_name: 'Test',
-                    last_name: 'User'
-                };
-
-                tg.MainButton.setText('🏠 Главная');
-                tg.MainButton.show();
-                tg.MainButton.onClick(() => {
-                    window.location.href = '/';
-                });
-            } else {
-                currentUser = {
-                    id: 123456789,
-                    first_name: 'Test',
-                    last_name: 'User'
+                this.validationSchema = {
+                    eventTitle: ['required', { type: 'maxLength', value: 100 }],
+                    workType: ['required'],
+                    eventCity: ['required'],
+                    eventPayment: ['required', 'positiveNumber']
                 };
             }
 
-            await loadUserProfile();
-            setupForm();
-        }
+            async init() {
+                console.log('📝 Initializing event creation wizard...');
 
-        async function loadUserProfile() {
-            try {
-                const response = await fetch(`/api/auth/check?telegram_id=${currentUser.id}`);
-                const data = await response.json();
+                await this.waitForApp();
 
-                if (data.registered && data.user.role === 'organizer') {
-                    displayUserInfo(data.user);
-                    prefillFormData(data.user);
-                } else {
-                    console.error('User is not a registered organizer');
-                    window.location.href = '/';
-                }
-            } catch (error) {
-                console.error('Error loading user profile:', error);
-                displayUserInfo({ full_name: `${currentUser.first_name} ${currentUser.last_name}`.trim() });
-            }
-        }
+                const roleCheck = await this.checkUserRole();
+                if (!roleCheck) return;
 
-        function displayUserInfo(user) {
-            document.getElementById('userInfoName').textContent = user.full_name;
-        }
-
-        function prefillFormData(user) {
-            // Предзаполняем город из профиля
-            if (user.city) {
-                document.getElementById('eventCity').value = user.city;
-            }
-        }
-
-        function setupForm() {
-            // Настройка минимальной даты (сегодня)
-            const now = new Date();
-            const minDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-            document.getElementById('eventDate').min = minDateTime;
-
-            // Обработка формы
-            document.getElementById('eventForm').addEventListener('submit', handleFormSubmit);
-        }
-
-        function getAuthHeaders() {
-            const headers = {
-                'Content-Type': 'application/json'
-            };
-
-            if (tg && tg.initData) {
-                headers['Authorization'] = tg.initData;
-                console.log('🔐 Added Authorization header');
-            } else {
-                headers['Authorization'] = 'test_data';
-                console.log('🧪 Using test authorization');
+                this.setupEventListeners();
+                this.setupCharCounters();
+                this.setupPresets();
+                this.updatePreview();
+                this.loadUserData();
             }
 
-            return headers;
-        }
-
-        async function handleFormSubmit(e) {
-            e.preventDefault();
-            console.log('📝 Submitting event creation...');
-
-            const submitBtn = document.getElementById('submitBtn');
-            const originalText = submitBtn.innerHTML;
-
-            // Блокируем кнопку
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '⏳ Создаём мероприятие...';
-
-            // Собираем данные формы
-            const eventData = {
-                title: document.getElementById('eventTitle').value.trim(),
-                description: buildFullDescription(),
-                city: document.getElementById('eventCity').value.trim(),
-                payment: parseFloat(document.getElementById('eventPayment').value) || 0,
-                date: document.getElementById('eventDate').value || null,
-                duration: parseInt(document.getElementById('eventDuration').value) || null,
-                work_type: document.getElementById('workType').value
-            };
-
-            console.log('📊 Event data:', eventData);
-
-            try {
-                const response = await fetch('/api/events/', {
-                    method: 'POST',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify(eventData)
-                });
-
-                console.log('📡 Response status:', response.status);
-
-                if (response.ok) {
-                    const result = await response.json();
-                    console.log('✅ Event created successfully:', result);
-
-                    if (tg && tg.showAlert) {
-                        tg.showAlert('✅ Мероприятие создано успешно!');
+            async waitForApp() {
+                return new Promise(resolve => {
+                    if (window.app?.isReady) {
+                        resolve();
                     } else {
-                        alert('✅ Мероприятие создано успешно!');
+                        window.addEventListener('app:ready', resolve);
                     }
+                });
+            }
+
+            async checkUserRole() {
+                try {
+                    const userData = await window.app.apiRequest('/api/auth/my-profile');
+                    if (!userData.registered || userData.user.role !== 'organizer') {
+                        window.location.href = '/';
+                        return false;
+                    }
+                    return true;
+                } catch (error) {
+                    console.error('Role check failed:', error);
+                    window.location.href = '/';
+                    return false;
+                }
+            }
+
+            setupEventListeners() {
+                // Навигация
+                document.getElementById('nextBtn').addEventListener('click', () => this.nextStep());
+                document.getElementById('prevBtn').addEventListener('click', () => this.prevStep());
+                document.getElementById('eventForm').addEventListener('submit', (e) => this.handleSubmit(e));
+
+                // Обновление предпросмотра при изменении полей
+                const watchFields = ['eventTitle', 'eventDescription', 'eventCity', 'eventPayment', 'workType', 'eventDate', 'eventDuration'];
+                watchFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (field) {
+                        field.addEventListener('input', () => this.updatePreview());
+                    }
+                });
+            }
+
+            setupCharCounters() {
+                const counters = [
+                    { fieldId: 'eventTitle', counterId: 'titleCounter', maxLength: 100 },
+                    { fieldId: 'eventDescription', counterId: 'descriptionCounter', maxLength: 1000 },
+                    { fieldId: 'eventRequirements', counterId: 'requirementsCounter', maxLength: 500 },
+                    { fieldId: 'eventContact', counterId: 'contactCounter', maxLength: 300 }
+                ];
+
+                counters.forEach(({ fieldId, counterId, maxLength }) => {
+                    const field = document.getElementById(fieldId);
+                    const counter = document.getElementById(counterId);
+
+                    if (field && counter) {
+                        field.addEventListener('input', () => {
+                            const currentLength = field.value.length;
+                            counter.textContent = `${currentLength}/${maxLength}`;
+
+                            // Меняем цвет в зависимости от заполненности
+                            counter.className = 'char-counter';
+                            if (currentLength > maxLength * 0.9) {
+                                counter.classList.add('error');
+                            } else if (currentLength > maxLength * 0.7) {
+                                counter.classList.add('warning');
+                            }
+                        });
+                    }
+                });
+            }
+
+            setupPresets() {
+                // Быстрая установка суммы
+                document.querySelectorAll('.preset-btn[data-payment]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        const payment = btn.dataset.payment;
+                        document.getElementById('eventPayment').value = payment;
+                        this.updatePreview();
+                    });
+                });
+
+                // Установка текущей даты и времени как минимальной
+                const dateField = document.getElementById('eventDate');
+                if (dateField) {
+                    const now = new Date();
+                    const minDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                    dateField.min = minDateTime;
+                }
+            }
+
+            async loadUserData() {
+                try {
+                    const userData = await window.app.apiRequest('/api/auth/my-profile');
+                    if (userData.registered && userData.user.city) {
+                        document.getElementById('eventCity').value = userData.user.city;
+                        this.updatePreview();
+                    }
+                } catch (error) {
+                    console.error('Error loading user data:', error);
+                }
+            }
+
+            nextStep() {
+                if (this.validateCurrentStep()) {
+                    if (this.currentStep < this.totalSteps) {
+                        this.currentStep++;
+                        this.updateStepDisplay();
+                        this.updatePreview();
+                    }
+                }
+            }
+
+            prevStep() {
+                if (this.currentStep > 1) {
+                    this.currentStep--;
+                    this.updateStepDisplay();
+                }
+            }
+
+            validateCurrentStep() {
+                if (this.currentStep === 1) {
+                    const formData = {
+                        eventTitle: document.getElementById('eventTitle').value,
+                        workType: document.getElementById('workType').value,
+                        eventCity: document.getElementById('eventCity').value,
+                        eventPayment: document.getElementById('eventPayment').value
+                    };
+
+                    const validation = this.validator.validateForm(formData, this.validationSchema);
+
+                    if (!validation.isValid) {
+                        this.validator.displayErrors(validation.errors);
+                        return false;
+                    } else {
+                        this.validator.clearErrors();
+                        return true;
+                    }
+                }
+
+                return true; // Остальные шаги пока без жесткой валидации
+            }
+
+            updateStepDisplay() {
+                // Обновляем прогресс-бар
+                document.querySelectorAll('.progress-step').forEach((step, index) => {
+                    const stepNum = index + 1;
+                    step.classList.remove('active', 'completed');
+
+                    if (stepNum < this.currentStep) {
+                        step.classList.add('completed');
+                    } else if (stepNum === this.currentStep) {
+                        step.classList.add('active');
+                    }
+                });
+
+                // Показываем/скрываем шаги
+                document.querySelectorAll('.wizard-step').forEach((step, index) => {
+                    const stepNum = index + 1;
+                    step.classList.toggle('active', stepNum === this.currentStep);
+                });
+
+                // Обновляем кнопки навигации
+                const prevBtn = document.getElementById('prevBtn');
+                const nextBtn = document.getElementById('nextBtn');
+                const submitBtn = document.getElementById('submitBtn');
+
+                prevBtn.style.display = this.currentStep > 1 ? 'block' : 'none';
+
+                if (this.currentStep === this.totalSteps) {
+                    nextBtn.style.display = 'none';
+                    submitBtn.style.display = 'block';
+                } else {
+                    nextBtn.style.display = 'block';
+                    submitBtn.style.display = 'none';
+                }
+
+                // Скроллим наверх при смене шага
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            updatePreview() {
+                if (this.currentStep !== 4) return;
+
+                const formData = this.collectFormData();
+                const preview = document.getElementById('eventPreview');
+
+                if (!preview) return;
+
+                const paymentFormatted = formData.eventPayment ?
+                    new Intl.NumberFormat('ru-RU').format(formData.eventPayment) + ' ₽' : 'Не указана';
+
+                const dateFormatted = formData.eventDate ?
+                    new Date(formData.eventDate).toLocaleDateString('ru-RU', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : 'Гибкая дата';
+
+                preview.innerHTML = `
+                    <div class="preview-title">${formData.eventTitle || 'Название мероприятия'}</div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin: var(--spacing-md) 0;">
+                        <div style="font-size: var(--font-size-xl); font-weight: 700; color: var(--color-success);">
+                            ${paymentFormatted}
+                        </div>
+                        <div class="badge badge-active">🟢 Активно</div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--spacing-sm); margin: var(--spacing-md) 0;">
+                        <div style="display: flex; align-items: center; gap: var(--spacing-xs); font-size: var(--font-size-sm);">
+                            <span>📍</span> ${formData.eventCity || 'Не указан'}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: var(--spacing-xs); font-size: var(--font-size-sm);">
+                            <span>📅</span> ${dateFormatted}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: var(--spacing-xs); font-size: var(--font-size-sm);">
+                            <span>⏰</span> ${formData.eventDuration ? formData.eventDuration + ' ч' : 'Не указано'}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: var(--spacing-xs); font-size: var(--font-size-sm);">
+                            <span>🏷️</span> ${formData.workType || 'Не указан'}
+                        </div>
+                    </div>
+
+                    ${formData.eventDescription ? `
+                        <div style="margin: var(--spacing-md) 0;">
+                            <strong>Описание:</strong><br>
+                            <div style="white-space: pre-wrap; margin-top: var(--spacing-xs);">${formData.eventDescription}</div>
+                        </div>
+                    ` : ''}
+
+                    ${formData.eventRequirements ? `
+                        <div style="margin: var(--spacing-md) 0;">
+                            <strong>Требования:</strong><br>
+                            <div style="white-space: pre-wrap; margin-top: var(--spacing-xs);">${formData.eventRequirements}</div>
+                        </div>
+                    ` : ''}
+                `;
+            }
+
+            collectFormData() {
+                return {
+                    eventTitle: document.getElementById('eventTitle').value.trim(),
+                    workType: document.getElementById('workType').value,
+                    eventCity: document.getElementById('eventCity').value.trim(),
+                    eventPayment: parseFloat(document.getElementById('eventPayment').value) || 0,
+                    eventDate: document.getElementById('eventDate').value || null,
+                    eventDuration: parseInt(document.getElementById('eventDuration').value) || null,
+                    eventDescription: document.getElementById('eventDescription').value.trim(),
+                    eventRequirements: document.getElementById('eventRequirements').value.trim(),
+                    eventContact: document.getElementById('eventContact').value.trim(),
+                    eventAddress: document.getElementById('eventAddress').value.trim()
+                };
+            }
+
+            buildFullDescription() {
+                const formData = this.collectFormData();
+                let description = formData.eventDescription;
+
+                if (formData.eventRequirements) {
+                    description += '\n\n📋 Требования:\n' + formData.eventRequirements;
+                }
+
+                if (formData.eventContact) {
+                    description += '\n\n📞 Контакты:\n' + formData.eventContact;
+                }
+
+                if (formData.eventAddress) {
+                    description += '\n\n📍 Адрес:\n' + formData.eventAddress;
+                }
+
+                return description;
+            }
+
+            async handleSubmit(e) {
+                e.preventDefault();
+
+                const submitBtn = document.getElementById('submitBtn');
+                const originalText = submitBtn.textContent;
+
+                try {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = '⏳ Создаём мероприятие...';
+
+                    const formData = this.collectFormData();
+
+                    // Валидация финальных данных
+                    const validation = this.validator.validateForm(formData, this.validationSchema);
+                    if (!validation.isValid) {
+                        this.currentStep = 1;
+                        this.updateStepDisplay();
+                        this.validator.displayErrors(validation.errors);
+                        return;
+                    }
+
+                    const eventData = {
+                        title: formData.eventTitle,
+                        description: this.buildFullDescription(),
+                        city: formData.eventCity,
+                        payment: formData.eventPayment,
+                        date: formData.eventDate,
+                        duration: formData.eventDuration,
+                        work_type: formData.workType
+                    };
+
+                    console.log('📊 Submitting event data:', eventData);
+
+                    const response = await window.app.apiRequest('/api/events/', {
+                        method: 'POST',
+                        body: JSON.stringify(eventData)
+                    });
+
+                    console.log('✅ Event created successfully:', response);
+
+                    window.app.showSuccess('Мероприятие создано успешно!');
 
                     // Перенаправляем на страницу управления мероприятиями
                     setTimeout(() => {
                         window.location.href = '/organizer/events';
                     }, 1500);
 
-                } else {
-                    const errorText = await response.text();
-                    console.error('❌ Event creation failed:', response.status, errorText);
+                } catch (error) {
+                    console.error('❌ Event creation failed:', error);
+                    window.app.showError('Ошибка при создании мероприятия: ' + error.message);
 
-                    let errorMessage = 'Ошибка при создании мероприятия';
-                    try {
-                        const errorData = JSON.parse(errorText);
-                        errorMessage = errorData.detail || errorMessage;
-                    } catch (e) {
-                        errorMessage = errorText || errorMessage;
-                    }
-
-                    if (tg && tg.showAlert) {
-                        tg.showAlert('❌ ' + errorMessage);
-                    } else {
-                        alert('❌ ' + errorMessage);
-                    }
-
-                    // Восстанавливаем кнопку
+                    // Возвращаем кнопку в исходное состояние
                     submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
+                    submitBtn.textContent = originalText;
                 }
-
-            } catch (error) {
-                console.error('💥 Network error:', error);
-
-                if (tg && tg.showAlert) {
-                    tg.showAlert('❌ Ошибка сети: ' + error.message);
-                } else {
-                    alert('❌ Ошибка сети: ' + error.message);
-                }
-
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
             }
         }
 
-        function buildFullDescription() {
-            let description = document.getElementById('eventDescription').value.trim();
-            const requirements = document.getElementById('eventRequirements').value.trim();
-            const contact = document.getElementById('eventContact').value.trim();
-
-            if (requirements) {
-                description += '\n\n📋 Требования:\n' + requirements;
-            }
-
-            if (contact) {
-                description += '\n\n📞 Контакты:\n' + contact;
-            }
-
-            return description;
-        }
-
-        document.addEventListener('DOMContentLoaded', init);
+        // Инициализация мастера
+        const wizard = new EventCreationWizard();
+        document.addEventListener('DOMContentLoaded', () => {
+            wizard.init();
+        });
     </script>
 </body>
 </html>

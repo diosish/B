@@ -1,0 +1,517 @@
+/* app/static/css/unified-styles.css - Унифицированная система стилей */
+
+/* =============================================
+   CSS VARIABLES - Единая цветовая схема
+   ============================================= */
+:root {
+    /* Telegram theme colors */
+    --tg-theme-bg-color: #ffffff;
+    --tg-theme-text-color: #000000;
+    --tg-theme-hint-color: #999999;
+    --tg-theme-link-color: #2678b6;
+    --tg-theme-button-color: #2678b6;
+    --tg-theme-button-text-color: #ffffff;
+    --tg-theme-secondary-bg-color: #f8f9fa;
+
+    /* Extended color palette */
+    --color-success: #28a745;
+    --color-warning: #ffc107;
+    --color-danger: #dc3545;
+    --color-info: #17a2b8;
+    --color-light: #f8f9fa;
+    --color-dark: #343a40;
+
+    /* Status colors */
+    --status-pending: #ffc107;
+    --status-approved: #28a745;
+    --status-rejected: #dc3545;
+    --status-active: #28a745;
+    --status-completed: #6c757d;
+    --status-cancelled: #dc3545;
+
+    /* Spacing system */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+    --spacing-xl: 24px;
+    --spacing-xxl: 32px;
+
+    /* Border radius */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+    --shadow-md: 0 2px 8px rgba(0,0,0,0.15);
+    --shadow-lg: 0 4px 16px rgba(0,0,0,0.2);
+
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+
+    /* Typography */
+    --font-size-xs: 11px;
+    --font-size-sm: 12px;
+    --font-size-base: 14px;
+    --font-size-md: 16px;
+    --font-size-lg: 18px;
+    --font-size-xl: 20px;
+    --font-size-xxl: 24px;
+
+    /* Layout */
+    --nav-height: 60px;
+    --content-padding: var(--spacing-lg);
+}
+
+/* =============================================
+   RESET & BASE STYLES
+   ============================================= */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--tg-theme-bg-color);
+    color: var(--tg-theme-text-color);
+    font-size: var(--font-size-base);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* =============================================
+   LAYOUT COMPONENTS
+   ============================================= */
+.app-container {
+    min-height: 100vh;
+    padding: var(--content-padding);
+    padding-bottom: calc(var(--nav-height) + var(--spacing-lg));
+}
+
+.page-header {
+    position: sticky;
+    top: 0;
+    background: var(--tg-theme-bg-color);
+    padding: var(--spacing-md) 0;
+    margin-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--tg-theme-hint-color);
+    z-index: 100;
+}
+
+.page-title {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    margin: 0;
+    color: var(--tg-theme-text-color);
+}
+
+.page-subtitle {
+    font-size: var(--font-size-sm);
+    color: var(--tg-theme-hint-color);
+    margin: var(--spacing-xs) 0 0 0;
+}
+
+/* =============================================
+   CARDS & CONTAINERS
+   ============================================= */
+.card {
+    background: var(--tg-theme-bg-color);
+    border: 1px solid var(--tg-theme-hint-color);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow var(--transition-fast);
+}
+
+.card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.card-header {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--tg-theme-hint-color);
+}
+
+.card-title {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    margin: 0;
+}
+
+.card-body {
+    padding: 0;
+}
+
+.card-footer {
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--tg-theme-hint-color);
+}
+
+/* =============================================
+   BUTTONS
+   ============================================= */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    min-height: 40px;
+    white-space: nowrap;
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Button variants */
+.btn-primary {
+    background: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+}
+
+.btn-primary:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.btn-success {
+    background: var(--color-success);
+    color: white;
+}
+
+.btn-warning {
+    background: var(--color-warning);
+    color: var(--color-dark);
+}
+
+.btn-danger {
+    background: var(--color-danger);
+    color: white;
+}
+
+.btn-secondary {
+    background: var(--color-light);
+    color: var(--tg-theme-text-color);
+    border: 1px solid var(--tg-theme-hint-color);
+}
+
+.btn-ghost {
+    background: transparent;
+    color: var(--tg-theme-text-color);
+    border: 1px solid var(--tg-theme-hint-color);
+}
+
+.btn-ghost:hover:not(:disabled) {
+    background: var(--tg-theme-secondary-bg-color);
+}
+
+/* Button sizes */
+.btn-sm {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    min-height: 32px;
+}
+
+.btn-lg {
+    padding: var(--spacing-md) var(--spacing-xl);
+    font-size: var(--font-size-md);
+    min-height: 48px;
+}
+
+.btn-full {
+    width: 100%;
+}
+
+/* =============================================
+   FORMS
+   ============================================= */
+.form-group {
+    margin-bottom: var(--spacing-md);
+}
+
+.form-label {
+    display: block;
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--tg-theme-text-color);
+    margin-bottom: var(--spacing-xs);
+}
+
+.form-label.required::after {
+    content: ' *';
+    color: var(--color-danger);
+}
+
+.form-input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--tg-theme-hint-color);
+    border-radius: var(--radius-md);
+    background: var(--tg-theme-bg-color);
+    color: var(--tg-theme-text-color);
+    font-size: var(--font-size-base);
+    transition: border-color var(--transition-fast);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--tg-theme-button-color);
+    box-shadow: 0 0 0 2px rgba(38, 120, 182, 0.2);
+}
+
+.form-input.error {
+    border-color: var(--color-danger);
+}
+
+.form-help {
+    font-size: var(--font-size-xs);
+    color: var(--tg-theme-hint-color);
+    margin-top: var(--spacing-xs);
+}
+
+.form-error {
+    font-size: var(--font-size-xs);
+    color: var(--color-danger);
+    margin-top: var(--spacing-xs);
+}
+
+/* =============================================
+   STATUS & BADGES
+   ============================================= */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-xl);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-pending {
+    background: rgba(255, 193, 7, 0.15);
+    color: #856404;
+}
+
+.badge-approved {
+    background: rgba(40, 167, 69, 0.15);
+    color: #155724;
+}
+
+.badge-rejected {
+    background: rgba(220, 53, 69, 0.15);
+    color: #721c24;
+}
+
+.badge-active {
+    background: rgba(40, 167, 69, 0.15);
+    color: #155724;
+}
+
+.badge-completed {
+    background: rgba(108, 117, 125, 0.15);
+    color: #495057;
+}
+
+.badge-cancelled {
+    background: rgba(220, 53, 69, 0.15);
+    color: #721c24;
+}
+
+/* =============================================
+   NAVIGATION
+   ============================================= */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: var(--nav-height);
+    background: var(--tg-theme-bg-color);
+    border-top: 1px solid var(--tg-theme-hint-color);
+    display: flex;
+    z-index: 1000;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+}
+
+.nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xs);
+    text-decoration: none;
+    color: var(--tg-theme-hint-color);
+    transition: color var(--transition-fast);
+    gap: 2px;
+}
+
+.nav-item.active {
+    color: var(--tg-theme-button-color);
+}
+
+.nav-item:hover {
+    color: var(--tg-theme-button-color);
+}
+
+.nav-icon {
+    font-size: var(--font-size-lg);
+    line-height: 1;
+}
+
+.nav-label {
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    line-height: 1;
+}
+
+/* =============================================
+   UTILITIES
+   ============================================= */
+.text-center { text-align: center; }
+.text-left { text-align: left; }
+.text-right { text-align: right; }
+
+.text-muted { color: var(--tg-theme-hint-color); }
+.text-success { color: var(--color-success); }
+.text-danger { color: var(--color-danger); }
+.text-warning { color: #856404; }
+
+.d-flex { display: flex; }
+.d-none { display: none; }
+.d-block { display: block; }
+
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.items-end { align-items: flex-end; }
+
+.gap-xs { gap: var(--spacing-xs); }
+.gap-sm { gap: var(--spacing-sm); }
+.gap-md { gap: var(--spacing-md); }
+.gap-lg { gap: var(--spacing-lg); }
+
+.mb-0 { margin-bottom: 0; }
+.mb-xs { margin-bottom: var(--spacing-xs); }
+.mb-sm { margin-bottom: var(--spacing-sm); }
+.mb-md { margin-bottom: var(--spacing-md); }
+.mb-lg { margin-bottom: var(--spacing-lg); }
+
+.mt-0 { margin-top: 0; }
+.mt-xs { margin-top: var(--spacing-xs); }
+.mt-sm { margin-top: var(--spacing-sm); }
+.mt-md { margin-top: var(--spacing-md); }
+.mt-lg { margin-top: var(--spacing-lg); }
+
+/* =============================================
+   RESPONSIVE DESIGN
+   ============================================= */
+@media (max-width: 480px) {
+    :root {
+        --content-padding: var(--spacing-sm);
+        --font-size-base: 13px;
+    }
+
+    .app-container {
+        padding: var(--content-padding);
+        padding-bottom: calc(var(--nav-height) + var(--spacing-sm));
+    }
+
+    .card {
+        padding: var(--spacing-md);
+        margin-bottom: var(--spacing-sm);
+    }
+
+    .btn {
+        min-height: 36px;
+        padding: var(--spacing-xs) var(--spacing-sm);
+    }
+
+    .btn-lg {
+        min-height: 44px;
+        padding: var(--spacing-sm) var(--spacing-lg);
+    }
+}
+
+@media (max-width: 320px) {
+    :root {
+        --content-padding: 6px;
+        --font-size-base: 12px;
+    }
+
+    .nav-label {
+        display: none;
+    }
+
+    .nav-icon {
+        font-size: var(--font-size-md);
+    }
+}
+
+/* =============================================
+   LOADING & STATES
+   ============================================= */
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--tg-theme-hint-color);
+    border-radius: 50%;
+    border-top-color: var(--tg-theme-button-color);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, var(--tg-theme-secondary-bg-color) 25%, transparent 50%, var(--tg-theme-secondary-bg-color) 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.empty-state {
+    text-align: center;
+    padding: var(--spacing-xxl) var(--spacing-lg);
+    color: var(--tg-theme-hint-color);
+}
+
+.empty-state-icon {
+    font-size: 48px;
+    margin-bottom: var(--spacing-md);
+    opacity: 0.5;
+}

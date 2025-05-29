@@ -8,254 +8,210 @@
     <!-- Telegram WebApp Script -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- Bootstrap for styling -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Unified Styles -->
+    <link href="/static/css/unified-styles.css" rel="stylesheet">
 
-    <!-- Custom CSS for Telegram theme -->
-    <style>
-        :root {
-            --tg-theme-bg-color: #ffffff;
-            --tg-theme-text-color: #000000;
-            --tg-theme-hint-color: #999999;
-            --tg-theme-link-color: #2678b6;
-            --tg-theme-button-color: #2678b6;
-            --tg-theme-button-text-color: #ffffff;
-        }
+    <!-- Page specific styles -->
+    {% block styles %}{% endblock %}
 
-        body {
-            background: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 0;
-            padding: 10px;
-            min-height: 100vh;
-        }
-
-        .telegram-card {
-            background: var(--tg-theme-bg-color);
-            border: 1px solid var(--tg-theme-hint-color);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .telegram-button {
-            background: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
-            border: none;
-            border-radius: 8px;
-            padding: 12px 24px;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            width: 100%;
-            margin-bottom: 8px;
-            transition: opacity 0.2s;
-        }
-
-        .telegram-button:hover {
-            opacity: 0.8;
-        }
-
-        .telegram-button:disabled {
-            opacity: 0.5;
-        }
-
-        .user-info {
-            background: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
-            padding: 10px;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .navbar {
-            display: none; /* Скрываем навбар в Telegram */
-        }
-
-        .container {
-            max-width: 100%;
-            padding: 0;
-        }
-
-        .form-control {
-            border-radius: 8px;
-            border: 1px solid var(--tg-theme-hint-color);
-            padding: 12px;
-            margin-bottom: 12px;
-        }
-
-        .alert {
-            border-radius: 8px;
-            border: none;
-            margin-bottom: 15px;
-        }
-    </style>
 </head>
 <body>
-    <!-- User info panel -->
-    <div id="userInfo" class="user-info" style="display: none;">
-        <div id="userName"></div>
-        <small id="userId"></small>
+    <!-- Loading Screen -->
+    <div id="app-loading" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>Загрузка...</p>
+        </div>
     </div>
 
-    <!-- Main content -->
-    <div class="container">
-        {% block content %}
-        <div class="telegram-card">
-            <h2>🎉 Добро пожаловать!</h2>
-            <p>Система регистрации оплачиваемых волонтёров</p>
-
-            <div class="d-grid gap-2">
-                <button class="telegram-button" onclick="openVolunteerPage()">
-                    👥 Я волонтёр
-                </button>
-                <button class="telegram-button" onclick="openOrganizerPage()">
-                    🏢 Я организатор
-                </button>
-            </div>
-        </div>
-
-        <div class="telegram-card">
-            <h5>ℹ️ Информация</h5>
-            <p><small>Здесь вы можете найти оплачиваемую работу волонтёром или создать мероприятие для поиска помощников.</small></p>
+    <!-- App Container -->
+    <div id="app-container" class="app-container" style="display: none;">
+        <!-- Page Header -->
+        {% block header %}
+        <div class="page-header">
+            <h1 class="page-title">{% block page_title %}{% endblock %}</h1>
+            {% block page_subtitle %}{% endblock %}
         </div>
         {% endblock %}
+
+        <!-- Main Content -->
+        <main id="main-content">
+            {% block content %}{% endblock %}
+        </main>
+
+        <!-- Bottom Navigation -->
+        {% block navigation %}{% endblock %}
     </div>
 
-    <!-- Telegram WebApp JavaScript -->
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Core JavaScript -->
+    <script src="/static/js/core.js"></script>
+    <script src="/static/js/notifications.js"></script>
+    <script src="/static/js/utils.js"></script>
+
+    <!-- Page specific scripts -->
+    {% block scripts %}{% endblock %}
+
+    <style>
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--tg-theme-bg-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .loading-content {
+            text-align: center;
+            color: var(--tg-theme-text-color);
+        }
+
+        .loading-content .loading-spinner {
+            margin-bottom: var(--spacing-md);
+        }
+
+        #toast-container {
+            position: fixed;
+            top: var(--spacing-lg);
+            right: var(--spacing-lg);
+            z-index: 10000;
+            max-width: 400px;
+            pointer-events: none;
+        }
+
+        @media (max-width: 480px) {
+            #toast-container {
+                top: var(--spacing-sm);
+                right: var(--spacing-sm);
+                left: var(--spacing-sm);
+                max-width: none;
+            }
+        }
+    </style>
+
     <script>
-        // Глобальные переменные
-        let tg = window.Telegram.WebApp;
-        let user = null;
-
-        // Инициализация Telegram WebApp
-        function initTelegram() {
-            console.log('Initializing Telegram WebApp...');
-
-            if (!tg) {
-                console.error('Telegram WebApp not available');
-                showError('Приложение должно быть запущено из Telegram');
-                return;
+        // Core app initialization
+        class App {
+            constructor() {
+                this.tg = window.Telegram?.WebApp;
+                this.currentUser = null;
+                this.isReady = false;
             }
 
-            tg.ready();
-            tg.expand();
+            async init() {
+                console.log('🚀 Initializing app...');
 
-            // Применяем тему Telegram
-            if (tg.themeParams) {
-                applyTelegramTheme(tg.themeParams);
+                try {
+                    // Initialize Telegram WebApp
+                    if (this.tg) {
+                        this.tg.ready();
+                        this.tg.expand();
+                        this.applyTelegramTheme();
+                        this.currentUser = this.tg.initDataUnsafe?.user;
+                    }
+
+                    // Show app content
+                    document.getElementById('app-loading').style.display = 'none';
+                    document.getElementById('app-container').style.display = 'block';
+
+                    this.isReady = true;
+                    console.log('✅ App initialized successfully');
+
+                    // Trigger custom event
+                    window.dispatchEvent(new CustomEvent('app:ready'));
+
+                } catch (error) {
+                    console.error('❌ App initialization failed:', error);
+                    this.showError('Ошибка инициализации приложения');
+                }
             }
 
-            // Получаем данные пользователя
-            user = tg.initDataUnsafe?.user;
-            if (user) {
-                showUserInfo(user);
-            } else {
-                console.error('No user data available');
-                showError('Не удалось получить данные пользователя');
-                return;
+            applyTelegramTheme() {
+                if (!this.tg?.themeParams) return;
+
+                const theme = this.tg.themeParams;
+                const root = document.documentElement;
+
+                if (theme.bg_color) root.style.setProperty('--tg-theme-bg-color', theme.bg_color);
+                if (theme.text_color) root.style.setProperty('--tg-theme-text-color', theme.text_color);
+                if (theme.hint_color) root.style.setProperty('--tg-theme-hint-color', theme.hint_color);
+                if (theme.button_color) root.style.setProperty('--tg-theme-button-color', theme.button_color);
+                if (theme.button_text_color) root.style.setProperty('--tg-theme-button-text-color', theme.button_text_color);
+                if (theme.secondary_bg_color) root.style.setProperty('--tg-theme-secondary-bg-color', theme.secondary_bg_color);
             }
 
-            // Настраиваем главную кнопку
-            tg.MainButton.hide();
-
-            console.log('Telegram WebApp initialized successfully');
-            console.log('User:', user);
-        }
-
-        // Применение темы Telegram
-        function applyTelegramTheme(theme) {
-            const root = document.documentElement;
-
-            if (theme.bg_color) root.style.setProperty('--tg-theme-bg-color', theme.bg_color);
-            if (theme.text_color) root.style.setProperty('--tg-theme-text-color', theme.text_color);
-            if (theme.hint_color) root.style.setProperty('--tg-theme-hint-color', theme.hint_color);
-            if (theme.button_color) root.style.setProperty('--tg-theme-button-color', theme.button_color);
-            if (theme.button_text_color) root.style.setProperty('--tg-theme-button-text-color', theme.button_text_color);
-        }
-
-        // Отображение информации о пользователе
-        function showUserInfo(userData) {
-            const userInfo = document.getElementById('userInfo');
-            const userName = document.getElementById('userName');
-            const userId = document.getElementById('userId');
-
-            if (userData) {
-                userName.textContent = `${userData.first_name} ${userData.last_name || ''}`.trim();
-                userId.textContent = `ID: ${userData.id}`;
-                userInfo.style.display = 'block';
-            }
-        }
-
-        // Показать ошибку
-        function showError(message) {
-            if (tg && tg.showAlert) {
-                tg.showAlert(message);
-            } else {
-                alert(message);
-            }
-        }
-
-        // Навигация
-        function openVolunteerPage() {
-            if (!user) {
-                showError('Данные пользователя недоступны');
-                return;
-            }
-            window.location.href = '/volunteer';
-        }
-
-        function openOrganizerPage() {
-            if (!user) {
-                showError('Данные пользователя недоступны');
-                return;
-            }
-            window.location.href = '/organizer';
-        }
-
-        // Отправка данных в API
-        async function sendToAPI(endpoint, data) {
-            if (!tg || !tg.initData) {
-                throw new Error('Telegram data not available');
+            showError(message) {
+                if (this.tg?.showAlert) {
+                    this.tg.showAlert(message);
+                } else {
+                    alert(message);
+                }
             }
 
-            try {
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': tg.initData
-                    },
-                    body: JSON.stringify(data)
-                });
+            showSuccess(message) {
+                if (window.notifications) {
+                    window.notifications.success(message);
+                } else if (this.tg?.showAlert) {
+                    this.tg.showAlert('✅ ' + message);
+                }
+            }
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+            setupMainButton(text, callback) {
+                if (this.tg?.MainButton) {
+                    this.tg.MainButton.setText(text);
+                    this.tg.MainButton.show();
+                    this.tg.MainButton.onClick(callback);
+                }
+            }
+
+            hideMainButton() {
+                if (this.tg?.MainButton) {
+                    this.tg.MainButton.hide();
+                }
+            }
+
+            getAuthHeaders() {
+                const headers = {
+                    'Content-Type': 'application/json',
+                };
+
+                if (this.tg?.initData) {
+                    headers['Authorization'] = this.tg.initData;
+                } else {
+                    headers['Authorization'] = 'test_data';
                 }
 
-                return await response.json();
-            } catch (error) {
-                console.error('API Error:', error);
-                throw error;
+                return headers;
+            }
+
+            async apiRequest(url, options = {}) {
+                const defaultOptions = {
+                    headers: this.getAuthHeaders(),
+                };
+
+                const response = await fetch(url, { ...defaultOptions, ...options });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP ${response.status}`);
+                }
+
+                return response.json();
             }
         }
 
-        // Показать уведомление
-        function showNotification(message, isError = false) {
-            if (tg && tg.showAlert) {
-                tg.showAlert(message);
-            } else {
-                alert(message);
-            }
-        }
-
-        // Инициализация при загрузке
-        document.addEventListener('DOMContentLoaded', initTelegram);
+        // Initialize app
+        window.app = new App();
+        document.addEventListener('DOMContentLoaded', () => {
+            window.app.init();
+        });
     </script>
-
-    {% block scripts %}{% endblock %}
 </body>
 </html>
