@@ -1,4 +1,4 @@
-# app/auth.py - УЛУЧШЕННАЯ ВЕРСИЯ
+# app/auth.py - ИСПРАВЛЕННАЯ ВЕРСИЯ
 import hashlib
 import hmac
 import json
@@ -9,27 +9,62 @@ import os
 from datetime import datetime, timedelta
 
 
-def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
-    """Проверка подлинности данных Telegram WebApp с поддержкой тестового режима"""
+def extract_real_telegram_id(init_data: str) -> Optional[int]:
+    """Извлечение реального telegram_id из init_data, даже в режиме разработки"""
+    try:
+        parsed_data = dict(parse_qsl(init_data))
+        user_data = parsed_data.get('user')
 
-    # Режим разработки - возвращаем тестовые данные
+        if user_data:
+            user_info = json.loads(unquote(user_data))
+            telegram_id = user_info.get('id')
+            if telegram_id and isinstance(telegram_id, int):
+                return telegram_id
+    except Exception as e:
+        print(f"⚠️ Could not extract real telegram_id: {e}")
+
+    return None
+
+
+def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
+    """Проверка подлинности данных Telegram WebApp с учетом реального ID"""
+
+    # Пытаемся извлечь реальный telegram_id
+    real_telegram_id = extract_real_telegram_id(init_data)
+
+    # Режим разработки - но используем реальный ID если он есть
     if allow_test_mode and (
             os.getenv("ENVIRONMENT") == "development" or
             init_data == "test_data" or
             not os.getenv("BOT_TOKEN")
     ):
-        print("⚠️ Development mode: using test user data")
-        return {
-            'id': 123456789,
-            'first_name': 'Test',
-            'last_name': 'User',
-            'username': 'testuser',
-            'language_code': 'ru',
-            'is_premium': False
-        }
+        print("⚠️ Development mode: simplified auth validation")
+
+        # Если удалось извлечь реальный ID, используем его
+        if real_telegram_id:
+            print(f"🔍 Using real telegram_id in dev mode: {real_telegram_id}")
+            return {
+                'id': real_telegram_id,
+                'first_name': 'Dev',
+                'last_name': 'User',
+                'username': f'devuser_{real_telegram_id}',
+                'language_code': 'ru',
+                'is_premium': False
+            }
+        else:
+            # Фоллбек к тестовому пользователю только если не удалось извлечь реальный ID
+            print("🧪 Using fallback test user")
+            return {
+                'id': 123456789,
+                'first_name': 'Test',
+                'last_name': 'User',
+                'username': 'testuser',
+                'language_code': 'ru',
+                'is_premium': False
+            }
 
     try:
-        # Парсинг init_data
+        # Полная проверка для продакшена
         parsed_data = dict(parse_qsl(init_data))
 
         # Извлечение hash
@@ -96,17 +131,29 @@ def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
     except Exception as e:
         print(f"❌ Telegram auth error: {e}")
 
-        # В режиме разработки возвращаем тестовые данные даже при ошибке
+        # В режиме разработки возвращаем данные с реальным ID если возможно
         if allow_test_mode and os.getenv("ENVIRONMENT") == "development":
-            print("⚠️ Auth failed, but using test data in development mode")
-            return {
-                'id': 123456789,
-                'first_name': 'Test',
-                'last_name': 'User',
-                'username': 'testuser',
-                'language_code': 'ru',
-                'is_premium': False
-            }
+            print("⚠️ Auth failed, but using fallback in development mode")
+
+            if real_telegram_id:
+                print(f"🔍 Using real telegram_id as fallback: {real_telegram_id}")
+                return {
+                    'id': real_telegram_id,
+                    'first_name': 'Dev',
+                    'last_name': 'User',
+                    'username': f'devuser_{real_telegram_id}',
+                    'language_code': 'ru',
+                    'is_premium': False
+                }
+            else:
+                return {
+                    'id': 123456789,
+                    'first_name': 'Test',
+                    'last_name': 'User',
+                    'username': 'testuser',
+                    'language_code': 'ru',
+                    'is_premium': False
+                }
 
         raise HTTPException(
             status_code=401,
