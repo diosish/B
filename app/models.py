@@ -54,12 +54,6 @@ class User(Base):
     __table_args__ = (
         CheckConstraint("role IN ('volunteer', 'organizer', 'admin')", name='valid_role'),
         CheckConstraint("rating >= 0 AND rating <= 5", name='valid_rating'),
-        CheckConstraint(
-            "(role = 'volunteer' AND volunteer_type IS NOT NULL) OR " +
-            "(role = 'organizer' AND org_type IS NOT NULL) OR " +
-            "(role = 'admin')",
-            name='role_fields_consistency'
-        ),
     )
 
     @validates('role')
@@ -77,7 +71,7 @@ class User(Base):
 
     @validates('volunteer_type')
     def validate_volunteer_type(self, key, volunteer_type):
-        if self.role == 'volunteer' and volunteer_type:
+        if volunteer_type:
             valid_types = ['студент', 'фрилансер', 'профи']
             if volunteer_type not in valid_types:
                 raise ValueError(f"Invalid volunteer type: {volunteer_type}")
@@ -85,7 +79,7 @@ class User(Base):
 
     @validates('org_type')
     def validate_org_type(self, key, org_type):
-        if self.role == 'organizer' and org_type:
+        if org_type:
             valid_types = ['ООО', 'ИП', 'физлицо', 'НКО']
             if org_type not in valid_types:
                 raise ValueError(f"Invalid organization type: {org_type}")
@@ -115,7 +109,6 @@ class Event(Base):
     __table_args__ = (
         CheckConstraint("status IN ('active', 'completed', 'cancelled')", name='valid_status'),
         CheckConstraint("payment >= 0", name='non_negative_payment'),
-        CheckConstraint("duration > 0", name='positive_duration'),
     )
 
     @validates('status')
@@ -130,12 +123,6 @@ class Event(Base):
         if payment is not None and payment < 0:
             raise ValueError("Payment cannot be negative")
         return payment
-
-    @validates('duration')
-    def validate_duration(self, key, duration):
-        if duration is not None and duration <= 0:
-            raise ValueError("Duration must be positive")
-        return duration
 
     @validates('work_type')
     def validate_work_type(self, key, work_type):

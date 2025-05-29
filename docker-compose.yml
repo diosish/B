@@ -16,7 +16,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U volunteer_user -d volunteer_db"]
       interval: 10s
@@ -26,26 +25,6 @@ services:
     restart: unless-stopped
     networks:
       - app-network
-
-  # ==============================================
-  # REDIS ДЛЯ КЕШИРОВАНИЯ И СЕССИЙ
-  # ==============================================
-  redis:
-    image: redis:7-alpine
-    container_name: volunteer_redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
-    networks:
-      - app-network
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
 
   # ==============================================
   # ОСНОВНОЕ ПРИЛОЖЕНИЕ FASTAPI
@@ -61,33 +40,24 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     environment:
       # Основные настройки
-      ENVIRONMENT: production
+      ENVIRONMENT: development
       DATABASE_URL: postgresql://volunteer_user:your_password@db:5432/volunteer_db
-      REDIS_URL: redis://redis:6379/0
 
       # Telegram
-      BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
-      WEBAPP_URL: https://013b-146-70-139-6.ngrok-free.app/
+      BOT_TOKEN: ${BOT_TOKEN:-7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw}
+      WEBAPP_URL: ${WEBAPP_URL:-https://013b-146-70-139-6.ngrok-free.app/}
 
       # Безопасность
       SECRET_KEY: your_super_secret_key_change_this_in_production_2024!
       ADMIN_TELEGRAM_IDS: "123456789"
-
-      # Производительность
-      WORKERS: 4
-      MAX_CONNECTIONS: 100
-      REQUEST_TIMEOUT: 30
 
       # Логирование
       LOG_LEVEL: INFO
 
     volumes:
       - ./logs:/app/logs
-      - upload_data:/app/uploads
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -101,11 +71,11 @@ services:
       sh -c "
         echo '🚀 Starting application...' &&
         echo '⏳ Waiting for database...' &&
-        sleep 10 &&
+        sleep 15 &&
         echo '📦 Running migrations...' &&
         alembic upgrade head &&
         echo '🎯 Starting FastAPI server...' &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --access-log
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
       "
 
   # ==============================================
@@ -123,10 +93,10 @@ services:
       db:
         condition: service_healthy
     environment:
-      ENVIRONMENT: production
+      ENVIRONMENT: development
       DATABASE_URL: postgresql://volunteer_user:your_password@db:5432/volunteer_db
-      BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
-      WEBAPP_URL: https://013b-146-70-139-6.ngrok-free.app/
+      BOT_TOKEN: ${BOT_TOKEN:-7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw}
+      WEBAPP_URL: ${WEBAPP_URL:-https://013b-146-70-139-6.ngrok-free.app/}
       LOG_LEVEL: INFO
     volumes:
       - ./logs:/app/logs
@@ -136,73 +106,15 @@ services:
     command: >
       sh -c "
         echo '🤖 Starting Telegram bot...' &&
-        sleep 20 &&
+        sleep 25 &&
         python run_bot.py
       "
-
-  # ==============================================
-  # NGINX REVERSE PROXY (опционально)
-  # ==============================================
-  nginx:
-    image: nginx:alpine
-    container_name: volunteer_nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - app
-    restart: unless-stopped
-    networks:
-      - app-network
-
-  # ==============================================
-  # МОНИТОРИНГ (опционально)
-  # ==============================================
-  grafana:
-    image: grafana/grafana:latest
-    container_name: volunteer_grafana
-    ports:
-      - "3000:3000"
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin123
-    volumes:
-      - grafana_data:/var/lib/grafana
-    restart: unless-stopped
-    networks:
-      - app-network
-    profiles:
-      - monitoring
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: volunteer_prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    restart: unless-stopped
-    networks:
-      - app-network
-    profiles:
-      - monitoring
 
 # ==============================================
 # VOLUMES
 # ==============================================
 volumes:
   postgres_data:
-    driver: local
-  redis_data:
-    driver: local
-  grafana_data:
-    driver: local
-  prometheus_data:
-    driver: local
-  upload_data:
     driver: local
 
 # ==============================================
@@ -211,6 +123,3 @@ volumes:
 networks:
   app-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
