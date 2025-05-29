@@ -90,7 +90,13 @@
                     <div class="field-value" id="skills">Не указаны</div>
                     <textarea class="field-input" id="skillsInput" style="display: none;" rows="3" placeholder="Опишите ваши навыки и опыт работы..."></textarea>
                 </div>
-                
+                <div class="profile-field">
+                    <div class="field-label">Резюме / Портфолио</div>
+                    <div class="field-value" id="resume">Не указано</div>
+                    <textarea class="field-input" id="resumeInput" style="display: none;" rows="4"
+                              placeholder="Ссылка на резюме, портфолио или краткое описание вашего опыта..."></textarea>
+                    <div class="form-help" style="display: none;">Можете указать ссылку на резюме, портфолио или написать краткое описание</div>
+                </div>
                 <div class="profile-field">
                     <div class="field-label">Рейтинг</div>
                     <div class="field-value" id="rating">⭐ 0.0</div>
@@ -230,18 +236,20 @@
             document.getElementById('city').textContent = profile.city || 'Не указан';
             document.getElementById('volunteerType').textContent = profile.volunteer_type || 'Не указан';
             document.getElementById('skills').textContent = profile.skills || 'Не указаны';
+            document.getElementById('resume').textContent = profile.resume || 'Не указано'; // НОВОЕ
             document.getElementById('rating').textContent = `⭐ ${profile.rating || 0}`;
-            
+
             if (profile.created_at) {
                 const date = new Date(profile.created_at).toLocaleDateString('ru-RU');
                 document.getElementById('createdAt').textContent = date;
             }
-            
+
             // Заполняем поля ввода
             document.getElementById('fullNameInput').value = profile.full_name || '';
             document.getElementById('cityInput').value = profile.city || '';
             document.getElementById('volunteerTypeInput').value = profile.volunteer_type || 'студент';
             document.getElementById('skillsInput').value = profile.skills || '';
+            document.getElementById('resumeInput').value = profile.resume || ''; // НОВОЕ
         }
 
         function toggleEditMode() {

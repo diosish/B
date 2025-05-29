@@ -130,6 +130,51 @@ def update_event_status(
     }
 
 
+@router.put("/{event_id}", response_model=schemas.EventResponse)
+def update_event(
+        event_id: int,
+        event_data: schemas.EventUpdate,
+        db: Session = Depends(get_db),
+        telegram_user: dict = Depends(get_telegram_user_flexible)
+):
+    """Обновление мероприятия"""
+    print(f"✏️ Updating event {event_id} by user {telegram_user['id']}")
+
+    # Проверяем, что пользователь - организатор этого мероприятия
+    organizer = crud.get_user_by_telegram_id(db, telegram_user['id'])
+    if not organizer:
+        raise HTTPException(status_code=404, detail="Organizer not found")
+
+    event = crud.get_event_by_id(db, event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    if event.organizer_id != organizer.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    try:
+        # Обновляем только переданные поля
+        update_data = event_data.dict(exclude_unset=True)
+
+        for field, value in update_data.items():
+            if hasattr(event, field) and value is not None:
+                setattr(event, field, value)
+
+        # Обновляем timestamp
+        event.updated_at = datetime.utcnow()
+
+        db.commit()
+        db.refresh(event)
+
+        print(f"✅ Event {event_id} updated successfully")
+        return event
+
+    except Exception as e:
+        print(f"❌ Error updating event: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to update event: {str(e)}")
+
+
 @router.get("/{event_id}/applications")
 def get_event_applications(
         event_id: int,

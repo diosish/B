@@ -247,3 +247,13 @@ class PaginatedResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+class EventUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    city: Optional[str] = None
+    date: Optional[datetime] = None
+    duration: Optional[int] = None
+    payment: Optional[float] = None
+    work_type: Optional[str] = None
+    status: Optional[str] = None
