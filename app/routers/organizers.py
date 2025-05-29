@@ -18,25 +18,25 @@ def register_organizer(
     """Регистрация организатора через Telegram"""
 
     print(f"🏢 Registering organizer: {telegram_user['id']}")
-    print(f"📊 Received registration data: {registration_data}")
 
     # Проверяем, не зарегистрирован ли уже пользователь
     db_user = crud.get_user_by_telegram_id(db, telegram_user['id'])
 
     if db_user:
-        print(f"👤 User already exists, updating: {db_user.id}")
-        # Обновляем существующего пользователя
+        # ИСПРАВЛЕНИЕ: Не позволяем менять роль
+        if db_user.role != "organizer":
+            raise HTTPException(
+                status_code=400,
+                detail=f"User already registered as {db_user.role}. Cannot change role to organizer."
+            )
+
+        # Обновляем данные существующего организатора
         db_user.full_name = registration_data.full_name
         db_user.city = registration_data.city
         db_user.org_type = registration_data.org_type
         db_user.org_name = registration_data.org_name
         db_user.inn = registration_data.inn
         db_user.description = registration_data.description
-        db_user.role = "organizer"
-
-        # Обнуляем поля волонтёра
-        db_user.volunteer_type = None
-        db_user.skills = None
 
         db.commit()
         db.refresh(db_user)
@@ -48,7 +48,7 @@ def register_organizer(
         full_name=registration_data.full_name,
         city=registration_data.city,
         role="organizer",
-        # Обнуляем поля волонтёра
+        # Поля волонтёра остаются None
         volunteer_type=None,
         skills=None,
         # Заполняем поля организатора
@@ -58,9 +58,7 @@ def register_organizer(
         description=registration_data.description
     )
 
-    print(f"➕ Creating new organizer user with data: {create_data}")
     return crud.create_user(db, create_data)
-
 
 @router.get("/profile", response_model=schemas.UserResponse)
 def get_my_profile(

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ошибка сервера</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .error-container {
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .error-code {
+            font-size: 72px;
+            font-weight: bold;
+            color: #dc3545;
+            margin-bottom: 20px;
+        }
+
+        .error-message {
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+
+        .error-description {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #666);
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+
+        .error-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .btn {
+            background: var(--tg-theme-button-color, #2678b6);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-code">500</div>
+        <div class="error-message">Ошибка сервера</div>
+        <div class="error-description">
+            Произошла внутренняя ошибка сервера. Мы уже работаем над её устранением.
+            Попробуйте обновить страницу или вернуться позже.
+        </div>
+        <div class="error-actions">
+            <button class="btn" onclick="reloadPage()">🔄 Обновить страницу</button>
+            <button class="btn" onclick="goHome()">🏠 На главную</button>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram?.WebApp;
+
+        if (tg) {
+            tg.ready();
+            tg.expand();
+
+            tg.MainButton.setText('🏠 На главную');
+            tg.MainButton.show();
+            tg.MainButton.onClick(() => {
+                window.location.href = '/';
+            });
+        }
+
+        function reloadPage() {
+            window.location.reload();
+        }
+
+        function goHome() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
