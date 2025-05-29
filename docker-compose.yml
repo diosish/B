@@ -10,7 +10,7 @@ services:
     environment:
       POSTGRES_DB: volunteer_db
       POSTGRES_USER: volunteer_user
-      POSTGRES_PASSWORD: SecureP@ssw0rd!2024
+      POSTGRES_PASSWORD: your_password
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
     ports:
       - "5432:5432"
@@ -66,7 +66,7 @@ services:
     environment:
       # Основные настройки
       ENVIRONMENT: production
-      DATABASE_URL: postgresql://volunteer_user:SecureP@ssw0rd!2024@db:5432/volunteer_db
+      DATABASE_URL: postgresql://volunteer_user:your_password@db:5432/volunteer_db
       REDIS_URL: redis://redis:6379/0
 
       # Telegram
@@ -124,7 +124,7 @@ services:
         condition: service_healthy
     environment:
       ENVIRONMENT: production
-      DATABASE_URL: postgresql://volunteer_user:SecureP@ssw0rd!2024@db:5432/volunteer_db
+      DATABASE_URL: postgresql://volunteer_user:your_password@db:5432/volunteer_db
       BOT_TOKEN: 7704108290:AAE9kFQS0H-HhnY8EYGJsvBrdzAr0f9wNqw
       WEBAPP_URL: https://013b-146-70-139-6.ngrok-free.app/
       LOG_LEVEL: INFO
