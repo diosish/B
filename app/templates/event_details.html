@@ -427,44 +427,44 @@
         }
 
             function displayEvent() {
-            document.getElementById('loadingSection').style.display = 'none';
-            document.getElementById('eventContent').style.display = 'block';
+                document.getElementById('loadingSection').style.display = 'none';
+                document.getElementById('eventContent').style.display = 'block';
 
-            // Заголовок
-            document.getElementById('eventTitle').textContent = eventData.title;
-            document.getElementById('eventPayment').textContent = `💰 ${eventData.payment || 0} ₽`;
+                // Заголовок
+                document.getElementById('eventTitle').textContent = eventData.title;
+                document.getElementById('eventPayment').textContent = `💰 ${eventData.payment || 0} ₽`;
 
-            const statusElement = document.getElementById('eventStatus');
-            const statusLabels = {
-                'active': '🟢 Активно',
-                'completed': '⚪ Завершено',
-                'cancelled': '🔴 Отменено'
-            };
-            statusElement.textContent = statusLabels[eventData.status] || `🟡 ${eventData.status}`;
-            statusElement.className = `event-status status-${eventData.status}`;
+                const statusElement = document.getElementById('eventStatus');
+                const statusLabels = {
+                    'active': '🟢 Активно',
+                    'completed': '⚪ Завершено',
+                    'cancelled': '🔴 Отменено'
+                };
+                statusElement.textContent = statusLabels[eventData.status] || `🟡 ${eventData.status}`;
+                statusElement.className = `event-status status-${eventData.status}`;
 
-            // Детали
-            displayEventDetails();
+                // Детали
+                displayEventDetails();
 
-            // Описание
-            const description = eventData.description || 'Описание не указано';
-            document.getElementById('eventDescription').textContent = description;
+                // Описание
+                const description = eventData.description || 'Описание не указано';
+                document.getElementById('eventDescription').textContent = description;
 
-            // Требования (новое поле)
-            const requirements = eventData.treb || 'Особых требований нет';
-            document.getElementById('eventTreb').textContent = requirements;
+                // Требования (новое поле)
+                const requirements = eventData.treb || 'Особых требований нет';
+                document.getElementById('eventTreb').textContent = requirements;
 
-            // Организатор
-            displayOrganizerInfo();
+                // Организатор
+                displayOrganizerInfo();
 
-            // Контактная информация (только для одобренных заявок)
-            displayContactInfo();
+                // Контактная информация (только для одобренных заявок)
+                displayContactInfo();
 
-            // Кнопки действий
-            displayActionButtons();
+                // Кнопки действий
+                displayActionButtons();
 
-            console.log('✅ Event displayed with application status:', applicationStatus);
-        }
+                console.log('✅ Event displayed with application status:', applicationStatus);
+            }
 
         function displayEventDetails() {
             const details = [
