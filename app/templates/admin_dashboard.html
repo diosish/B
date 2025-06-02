@@ -216,7 +216,11 @@
             if (tg) {
                 tg.ready();
                 tg.expand();
-                currentUser = tg.initDataUnsafe?.user;
+                currentUser = tg.initDataUnsafe?.user || {
+                    id: 123456789,
+                    first_name: 'Test',
+                    last_name: 'User'
+                };
 
                 tg.MainButton.setText('🏠 Главная');
                 tg.MainButton.show();
