@@ -5,961 +5,475 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Профиль волонтёра</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link href="/static/css/unified-styles.css" rel="stylesheet">
-
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/navigation.css" rel="stylesheet">
     <style>
-        /* Специфичные стили для профиля волонтёра */
-        .profile-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: var(--spacing-xl);
-            border-radius: var(--radius-lg);
-            margin-bottom: var(--spacing-lg);
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 10px;
+            padding-bottom: 90px; /* Увеличиваем отступ снизу для большего меню */
+        }
+        
+        .telegram-card {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border: 1px solid var(--tg-theme-hint-color, #999999);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .telegram-button {
+            background: var(--tg-theme-button-color, #2678b6);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .telegram-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .user-info {
+            background: var(--tg-theme-button-color, #2678b6);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
             text-align: center;
-            position: relative;
-            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
-        .profile-header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: shimmer 3s ease-in-out infinite;
-        }
-
-        @keyframes shimmer {
-            0%, 100% { transform: rotate(0deg); }
-            50% { transform: rotate(180deg); }
-        }
-
-        .profile-avatar {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
+        .edit-btn {
+            background: var(--tg-theme-button-color, #2678b6);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            margin: 0 auto var(--spacing-md);
-            position: relative;
-            z-index: 1;
+            gap: 6px;
         }
 
-        .profile-name {
-            font-size: var(--font-size-xl);
-            font-weight: 600;
-            margin-bottom: var(--spacing-xs);
-            position: relative;
-            z-index: 1;
+        .edit-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
         }
 
-        .profile-type {
-            font-size: var(--font-size-sm);
-            opacity: 0.9;
-            position: relative;
-            z-index: 1;
+        .edit-btn.cancel {
+            background: #dc3545;
         }
 
-        .profile-rating {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: var(--spacing-xs);
-            margin-top: var(--spacing-md);
-            position: relative;
-            z-index: 1;
+        .profile-field {
+            margin-bottom: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            background: var(--tg-theme-bg-color, #ffffff);
+            border: 1px solid var(--tg-theme-hint-color, #eee);
+            transition: all 0.3s ease;
         }
 
-        .rating-stars {
-            color: #ffc107;
-            font-size: var(--font-size-lg);
-        }
-
-        .rating-value {
-            font-size: var(--font-size-md);
-            font-weight: 600;
-        }
-
-        .profile-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: var(--spacing-md);
-            margin: var(--spacing-lg) 0;
-        }
-
-        .stat-item {
-            text-align: center;
-            padding: var(--spacing-md);
-            background: var(--tg-theme-secondary-bg-color);
-            border-radius: var(--radius-lg);
-            transition: transform var(--transition-fast);
-        }
-
-        .stat-item:hover {
-            transform: translateY(-2px);
-        }
-
-        .stat-number {
-            font-size: var(--font-size-xl);
-            font-weight: 700;
-            color: var(--tg-theme-button-color);
-            margin-bottom: var(--spacing-xs);
-        }
-
-        .stat-label {
-            font-size: var(--font-size-xs);
-            color: var(--tg-theme-hint-color);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .edit-mode .card {
-            border-color: var(--tg-theme-button-color);
-            box-shadow: 0 0 0 2px rgba(38, 120, 182, 0.2);
-        }
-
-        .field-group {
-            margin-bottom: var(--spacing-lg);
+        .profile-field:hover {
+            border-color: var(--tg-theme-button-color, #2678b6);
         }
 
         .field-label {
-            font-size: var(--font-size-sm);
             font-weight: 600;
-            color: var(--tg-theme-text-color);
-            margin-bottom: var(--spacing-xs);
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
+            margin-bottom: 8px;
+            color: var(--tg-theme-hint-color, #666);
+            font-size: 14px;
         }
 
         .field-value {
-            font-size: var(--font-size-base);
-            color: var(--tg-theme-text-color);
-            min-height: 24px;
-            padding: var(--spacing-xs) 0;
-            word-wrap: break-word;
+            font-size: 16px;
+            color: var(--tg-theme-text-color, #000000);
         }
 
-        .field-value.empty {
-            color: var(--tg-theme-hint-color);
-            font-style: italic;
+        .field-input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid var(--tg-theme-hint-color, #ddd);
+            border-radius: 6px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .field-input:focus {
+            border-color: var(--tg-theme-button-color, #2678b6);
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(38, 120, 182, 0.1);
         }
 
         .edit-controls {
             display: none;
-            margin-top: var(--spacing-lg);
-            padding-top: var(--spacing-lg);
-            border-top: 1px solid var(--tg-theme-hint-color);
+            gap: 10px;
+            margin-top: 20px;
         }
 
-        .edit-mode .edit-controls {
+        .edit-controls.active {
             display: flex;
-            gap: var(--spacing-sm);
         }
 
-        .edit-toggle {
-            position: absolute;
-            top: var(--spacing-md);
-            right: var(--spacing-md);
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            border-radius: var(--radius-md);
-            padding: var(--spacing-xs) var(--spacing-sm);
-            font-size: var(--font-size-xs);
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .telegram-card {
+                padding: 12px;
+            }
+            
+            .edit-controls {
+                flex-direction: column;
+            }
+            
+            .edit-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        .navigation-menu {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--tg-theme-bg-color, #ffffff);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 8px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 15px;
             cursor: pointer;
-            transition: all var(--transition-fast);
-        }
-
-        .edit-toggle:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .achievement-item {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-sm);
-            padding: var(--spacing-sm);
-            background: var(--tg-theme-secondary-bg-color);
-            border-radius: var(--radius-md);
-            margin-bottom: var(--spacing-sm);
-        }
-
-        .achievement-icon {
-            font-size: var(--font-size-lg);
-            width: 40px;
-            text-align: center;
-        }
-
-        .achievement-content {
-            flex: 1;
-        }
-
-        .achievement-title {
-            font-weight: 600;
-            font-size: var(--font-size-sm);
-            margin-bottom: 2px;
-        }
-
-        .achievement-description {
-            font-size: var(--font-size-xs);
-            color: var(--tg-theme-hint-color);
-        }
-
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: var(--spacing-sm);
-            margin: var(--spacing-lg) 0;
-        }
-
-        .quick-action {
+            transition: all 0.3s ease;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: var(--spacing-md);
-            background: var(--tg-theme-bg-color);
-            border: 1px solid var(--tg-theme-hint-color);
-            border-radius: var(--radius-lg);
-            text-decoration: none;
-            color: var(--tg-theme-text-color);
-            transition: all var(--transition-fast);
-            cursor: pointer;
+            gap: 4px;
+            min-width: 80px;
         }
 
-        .quick-action:hover {
-            background: var(--tg-theme-secondary-bg-color);
+        .nav-btn.active {
+            background: var(--tg-theme-button-color, #2678b6);
+            color: var(--tg-theme-button-text-color, #ffffff);
             transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
 
-        .quick-action-icon {
-            font-size: var(--font-size-xl);
-            margin-bottom: var(--spacing-xs);
-        }
-
-        .quick-action-label {
-            font-size: var(--font-size-sm);
-            font-weight: 500;
-            text-align: center;
-        }
-
-        .danger-zone {
-            margin-top: var(--spacing-xl);
-            padding-top: var(--spacing-lg);
-            border-top: 2px solid var(--color-danger);
-        }
-
-        .danger-zone h3 {
-            color: var(--color-danger);
-            font-size: var(--font-size-md);
-            margin-bottom: var(--spacing-md);
-        }
-
-        .recent-activity {
-            margin-top: var(--spacing-lg);
-        }
-
-        .activity-item {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-sm);
-            padding: var(--spacing-sm) 0;
-            border-bottom: 1px solid var(--tg-theme-hint-color);
-        }
-
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-
-        .activity-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: var(--tg-theme-secondary-bg-color);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: var(--font-size-sm);
-        }
-
-        .activity-content {
-            flex: 1;
-        }
-
-        .activity-title {
-            font-size: var(--font-size-sm);
-            margin-bottom: 2px;
-        }
-
-        .activity-time {
-            font-size: var(--font-size-xs);
-            color: var(--tg-theme-hint-color);
+        .nav-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
 
         @media (max-width: 480px) {
-            .profile-header {
-                padding: var(--spacing-lg);
-            }
-
-            .profile-avatar {
-                width: 60px;
-                height: 60px;
-                font-size: 24px;
-            }
-
-            .profile-stats {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .quick-actions {
-                grid-template-columns: repeat(2, 1fr);
+            .nav-btn {
+                font-size: 13px;
+                padding: 10px 12px;
+                min-width: 70px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Профиль header -->
-    <div class="profile-header">
-        <button class="edit-toggle" id="editToggle">✏️ Редактировать</button>
-
-        <div class="profile-avatar">👤</div>
-
-        <h1 class="profile-name" id="profileName">Загрузка...</h1>
-        <p class="profile-type" id="profileType">Волонтёр</p>
-
-        <div class="profile-rating" id="profileRating">
-            <span class="rating-stars">⭐⭐⭐⭐⭐</span>
-            <span class="rating-value">0.0</span>
+    <div class="container content-with-nav">
+        <div class="user-info">
+            <div id="userInfoName"></div>
+            <small id="userInfoId"></small>
         </div>
-    </div>
-
-    <!-- Статистика -->
-    <div class="profile-stats">
-        <div class="stat-item">
-            <div class="stat-number" id="totalEvents">0</div>
-            <div class="stat-label">Мероприятий</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-number" id="completedEvents">0</div>
-            <div class="stat-label">Завершено</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-number" id="totalEarnings">0 ₽</div>
-            <div class="stat-label">Заработано</div>
-        </div>
-        <div class="stat-item">
-            <div class="stat-number" id="reviewsCount">0</div>
-            <div class="stat-label">Отзывов</div>
-        </div>
-    </div>
-
-    <!-- Быстрые действия -->
-    <div class="quick-actions">
-        <div class="quick-action" onclick="window.location.href='/volunteer/events'">
-            <div class="quick-action-icon">📅</div>
-            <div class="quick-action-label">Найти работу</div>
-        </div>
-        <div class="quick-action" onclick="window.location.href='/volunteer/applications'">
-            <div class="quick-action-icon">📋</div>
-            <div class="quick-action-label">Мои заявки</div>
-        </div>
-        <div class="quick-action" onclick="window.location.href='/volunteer/reviews'">
-            <div class="quick-action-icon">⭐</div>
-            <div class="quick-action-label">Отзывы</div>
-        </div>
-        <div class="quick-action" onclick="shareProfile()">
-            <div class="quick-action-icon">📤</div>
-            <div class="quick-action-label">Поделиться</div>
-        </div>
-    </div>
-
-    <!-- Основная информация -->
-    <form id="profileForm" class="card">
-        <div class="card-header">
-            <h2>👤 Основная информация</h2>
-        </div>
-        <div class="card-body">
-            <div class="field-group">
-                <div class="field-label">
-                    <span>📝</span> Полное имя
-                </div>
-                <div class="field-value" id="fullName">Не указано</div>
-                <input type="text" class="form-input" id="fullNameInput" style="display: none;">
+        
+        <div class="telegram-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 style="margin: 0; padding-right: 15px;">👥 Мой профиль</h3>
+                <button id="editBtn" class="edit-btn" onclick="toggleEditMode()">
+                    <span class="edit-icon">✏️</span>
+                    <span class="edit-text">Редактировать</span>
+                </button>
             </div>
-
-            <div class="field-group">
-                <div class="field-label">
-                    <span>📍</span> Город
+            
+            <div id="profileForm">
+                <div class="profile-field">
+                    <div class="field-label">Полное имя</div>
+                    <div class="field-value" id="fullName">Загружается...</div>
+                    <input type="text" class="field-input" id="fullNameInput" style="display: none;">
                 </div>
-                <div class="field-value" id="city">Не указан</div>
-                <input type="text" class="form-input" id="cityInput" style="display: none;" list="cityList">
-                <datalist id="cityList">
-                    <option value="Москва">
-                    <option value="Санкт-Петербург">
-                    <option value="Новосибирск">
-                    <option value="Екатеринбург">
-                    <option value="Казань">
-                    <option value="Нижний Новгород">
-                </datalist>
-            </div>
-
-            <div class="field-group">
-                <div class="field-label">
-                    <span>🏷️</span> Тип волонтёра
+                
+                <div class="profile-field">
+                    <div class="field-label">Город</div>
+                    <div class="field-value" id="city">Не указан</div>
+                    <input type="text" class="field-input" id="cityInput" style="display: none;" placeholder="Москва">
                 </div>
-                <div class="field-value" id="volunteerType">Не указан</div>
-                <select class="form-input" id="volunteerTypeInput" style="display: none;">
-                    <option value="студент">🎓 Студент</option>
-                    <option value="фрилансер">💻 Фрилансер</option>
-                    <option value="профи">⭐ Профи</option>
-                </select>
-            </div>
-
-            <div class="field-group">
-                <div class="field-label">
-                    <span>🛠️</span> Навыки и опыт
+                
+                <div class="profile-field">
+                    <div class="field-label">Тип волонтёра</div>
+                    <div class="field-value" id="volunteerType">Не указан</div>
+                    <select class="field-input" id="volunteerTypeInput" style="display: none;">
+                        <option value="студент">🎓 Студент</option>
+                        <option value="фрилансер">💻 Фрилансер</option>
+                        <option value="профи">⭐ Профи</option>
+                    </select>
                 </div>
-                <div class="field-value" id="skills">Не указаны</div>
-                <textarea class="form-input" id="skillsInput" style="display: none;" rows="4"
-                          placeholder="Опишите ваши навыки, опыт работы, образование..."></textarea>
-            </div>
-
-            <div class="field-group">
-                <div class="field-label">
-                    <span>📄</span> Резюме / Портфолио
+                
+                <div class="profile-field">
+                    <div class="field-label">Навыки и опыт</div>
+                    <div class="field-value" id="skills">Не указаны</div>
+                    <textarea class="field-input" id="skillsInput" style="display: none;" rows="3" placeholder="Опишите ваши навыки и опыт работы..."></textarea>
                 </div>
-                <div class="field-value" id="resume">Не указано</div>
-                <textarea class="form-input" id="resumeInput" style="display: none;" rows="3"
-                          placeholder="Ссылка на резюме, портфолио или краткое описание опыта..."></textarea>
-            </div>
-
-            <div class="field-group">
-                <div class="field-label">
-                    <span>📅</span> Дата регистрации
+                <div class="profile-field">
+                    <div class="field-label">Резюме / Портфолио</div>
+                    <div class="field-value" id="resume">Не указано</div>
+                    <textarea class="field-input" id="resumeInput" style="display: none;" rows="4"
+                              placeholder="Ссылка на резюме, портфолио или краткое описание вашего опыта..."></textarea>
+                    <div class="form-help" style="display: none;">Можете указать ссылку на резюме, портфолио или написать краткое описание</div>
                 </div>
-                <div class="field-value" id="createdAt">-</div>
-            </div>
-        </div>
-
-        <div class="edit-controls">
-            <button type="button" class="btn btn-success btn-full" onclick="saveProfile()">
-                💾 Сохранить изменения
-            </button>
-            <button type="button" class="btn btn-secondary btn-full" onclick="cancelEdit()">
-                ❌ Отменить
-            </button>
-        </div>
-    </form>
-
-    <!-- Достижения -->
-    <div class="card" id="achievementsCard" style="display: none;">
-        <div class="card-header">
-            <h2>🏆 Достижения</h2>
-        </div>
-        <div class="card-body" id="achievementsList">
-            <!-- Заполняется JS -->
-        </div>
-    </div>
-
-    <!-- Последняя активность -->
-    <div class="card">
-        <div class="card-header">
-            <h2>📈 Последняя активность</h2>
-        </div>
-        <div class="card-body">
-            <div class="recent-activity" id="recentActivity">
-                <div class="text-center" style="padding: var(--spacing-xl); color: var(--tg-theme-hint-color);">
-                    <div class="loading-spinner"></div>
-                    <p>Загружаем активность...</p>
+                <div class="profile-field">
+                    <div class="field-label">Рейтинг</div>
+                    <div class="field-value" id="rating">⭐ 0.0</div>
+                </div>
+                
+                <div class="profile-field">
+                    <div class="field-label">Дата регистрации</div>
+                    <div class="field-value" id="createdAt">-</div>
+                </div>
+                
+                <div class="edit-controls">
+                    <button class="edit-btn" onclick="saveProfile()">
+                        💾 Сохранить
+                    </button>
+                    <button class="edit-btn cancel" onclick="cancelEdit()">
+                        ❌ Отмена
+                    </button>
+                </div>
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid var(--tg-theme-hint-color, #eee);">
+                    <button type="button" onclick="deleteProfile()"
+                            style="background: #dc3545; color: white; border: none; border-radius: 6px; padding: 8px 16px; font-size: 12px; width: 100%;">
+                        🗑️ Удалить профиль навсегда
+                    </button>
+                    <small style="color: var(--tg-theme-hint-color, #666); font-size: 10px; display: block; text-align: center; margin-top: 4px;">
+                        Внимание! Это действие нельзя отменить
+                    </small>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Опасная зона -->
-    <div class="card danger-zone">
-        <h3>⚠️ Опасная зона</h3>
-        <p style="color: var(--tg-theme-hint-color); margin-bottom: var(--spacing-md);">
-            Внимание! Эти действия нельзя отменить.
-        </p>
-        <button type="button" class="btn btn-danger btn-full" onclick="deleteProfile()">
-            🗑️ Удалить профиль навсегда
-        </button>
-        <p style="font-size: var(--font-size-xs); color: var(--tg-theme-hint-color); margin-top: var(--spacing-xs); text-align: center;">
-            Будут удалены все ваши данные, заявки и отзывы
-        </p>
+    
+    <div class="navigation-menu">
+        <button class="nav-btn active" onclick="nav.goToVolunteerProfile()">👤 Профиль</button>
+        <button class="nav-btn" onclick="nav.goToVolunteerEvents()">📅 Мероприятия</button>
+        <button class="nav-btn" onclick="nav.goToVolunteerApplications()">📋 Заявки</button>
     </div>
-
-    <!-- Навигация -->
-    <nav class="bottom-nav">
-        <a href="/volunteer/profile" class="nav-item active">
-            <span class="nav-icon">👤</span>
-            <span class="nav-label">Профиль</span>
-        </a>
-        <a href="/volunteer/events" class="nav-item">
-            <span class="nav-icon">📅</span>
-            <span class="nav-label">Мероприятия</span>
-        </a>
-        <a href="/volunteer/applications" class="nav-item">
-            <span class="nav-icon">📋</span>
-            <span class="nav-label">Заявки</span>
-        </a>
-        <a href="/volunteer/reviews" class="nav-item">
-            <span class="nav-icon">⭐</span>
-            <span class="nav-label">Отзывы</span>
-        </a>
-    </nav>
-
-    <script src="/static/js/form-validator.js"></script>
+    <script src="/static/js/role-guard.js"></script>
+    <script src="/static/js/auth.js"></script>
     <script src="/static/js/navigation.js"></script>
     <script>
-        class VolunteerProfilePage {
-            constructor() {
-                this.isEditMode = false;
-                this.currentProfile = null;
-                this.profileStats = {};
+        let currentProfile = null;
+        let isEditMode = false;
+        let tg = window.Telegram?.WebApp;
+        let currentUser = null;
+
+        async function init() {
+            const roleCheckPassed = await roleGuard.init();
+            if (!roleCheckPassed || !roleGuard.checkVolunteerAccess()) {
+                return;
             }
-
-            async init() {
-                console.log('👤 Initializing volunteer profile page...');
-
-                await this.waitForApp();
-
-                const roleCheck = await this.checkUserRole();
-                if (!roleCheck) return;
-
-                this.setupEventListeners();
-                await this.loadProfileData();
-                await this.loadStatistics();
-                await this.loadRecentActivity();
-                this.loadAchievements();
+            if (tg) {
+                tg.ready();
+                tg.expand();
+                currentUser = tg.initDataUnsafe?.user || {
+                    id: 123456789,
+                    first_name: 'Test',
+                    last_name: 'User'
+                };
+            } else {
+                currentUser = {
+                    id: 123456789,
+                    first_name: 'Test',
+                    last_name: 'User'
+                };
             }
+            
+            // Показываем информацию о пользователе
+            showUserInfo();
+            
+            // Загружаем профиль
+            await loadProfile();
+        }
+        
+        function showUserInfo() {
+            document.getElementById('userInfoName').textContent = 
+                `${currentUser.first_name} ${currentUser.last_name || ''}`.trim();
+            document.getElementById('userInfoId').textContent = `ID: ${currentUser.id}`;
+        }
 
-            async waitForApp() {
-                return new Promise(resolve => {
-                    if (window.app?.isReady) {
-                        resolve();
-                    } else {
-                        window.addEventListener('app:ready', resolve);
+        async function deleteProfile() {
+            const confirmed = confirm('⚠️ ВНИМАНИЕ!\n\nВы действительно хотите удалить свой профиль?\n\nЭто действие нельзя отменить. Будут удалены:\n- Ваш профиль\n- Все ваши заявки\n- Все ваши мероприятия (для организаторов)\n- Все отзывы\n\nПродолжить?');
+
+            if (!confirmed) return;
+
+            const doubleConfirm = confirm('Последнее предупреждение!\n\nВы точно хотите НАВСЕГДА удалить свой профиль?');
+            if (!doubleConfirm) return;
+
+            try {
+                const response = await fetch(`/api/auth/profile?telegram_id=${currentUser.id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Профиль удален.\n\nВы будете перенаправлены на главную страницу.');
                     }
-                });
-            }
-
-            async checkUserRole() {
-                try {
-                    const userData = await window.app.apiRequest('/api/auth/my-profile');
-                    if (!userData.registered || userData.user.role !== 'volunteer') {
-                        window.location.href = '/';
-                        return false;
-                    }
-                    return true;
-                } catch (error) {
-                    console.error('Role check failed:', error);
-                    window.location.href = '/';
-                    return false;
-                }
-            }
-
-            setupEventListeners() {
-                document.getElementById('editToggle').addEventListener('click', () => this.toggleEditMode());
-
-                // Telegram главная кнопка
-                if (window.app?.tg?.MainButton) {
-                    window.app.tg.MainButton.setText('🏠 Главная');
-                    window.app.tg.MainButton.show();
-                    window.app.tg.MainButton.onClick(() => {
-                        window.location.href = '/';
-                    });
-                }
-            }
-
-            async loadProfileData() {
-                try {
-                    const userData = await window.app.apiRequest('/api/auth/my-profile');
-                    this.currentProfile = userData.user;
-                    this.displayProfile(this.currentProfile);
-                } catch (error) {
-                    console.error('Error loading profile:', error);
-                    window.app.showError('Ошибка загрузки профиля');
-                }
-            }
-
-            displayProfile(profile) {
-                // Заголовок профиля
-                document.getElementById('profileName').textContent = profile.full_name || 'Имя не указано';
-                document.getElementById('profileType').textContent = this.getVolunteerTypeLabel(profile.volunteer_type);
-
-                // Рейтинг
-                this.displayRating(profile.rating || 0);
-
-                // Основная информация
-                document.getElementById('fullName').textContent = profile.full_name || 'Не указано';
-                document.getElementById('city').textContent = profile.city || 'Не указан';
-                document.getElementById('volunteerType').textContent = this.getVolunteerTypeLabel(profile.volunteer_type) || 'Не указан';
-                document.getElementById('skills').textContent = profile.skills || 'Не указаны';
-                document.getElementById('resume').textContent = profile.resume || 'Не указано';
-
-                if (profile.created_at) {
-                    const date = new Date(profile.created_at).toLocaleDateString('ru-RU', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                    });
-                    document.getElementById('createdAt').textContent = date;
-                }
-
-                // Заполняем поля ввода для редактирования
-                document.getElementById('fullNameInput').value = profile.full_name || '';
-                document.getElementById('cityInput').value = profile.city || '';
-                document.getElementById('volunteerTypeInput').value = profile.volunteer_type || 'студент';
-                document.getElementById('skillsInput').value = profile.skills || '';
-                document.getElementById('resumeInput').value = profile.resume || '';
-            }
-
-            displayRating(rating) {
-                const ratingContainer = document.getElementById('profileRating');
-                const ratingValue = ratingContainer.querySelector('.rating-value');
-                const ratingStars = ratingContainer.querySelector('.rating-stars');
-
-                ratingValue.textContent = rating.toFixed(1);
-
-                // Отображаем звезды
-                const fullStars = Math.floor(rating);
-                const hasHalfStar = rating % 1 >= 0.5;
-                const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
-
-                ratingStars.textContent = '⭐'.repeat(fullStars) +
-                                        (hasHalfStar ? '⭐' : '') +
-                                        '☆'.repeat(emptyStars);
-            }
-
-            async loadStatistics() {
-                try {
-                    // Загружаем заявки для подсчета статистики
-                    const applications = await window.app.apiRequest('/api/applications/my');
-
-                    const stats = {
-                        total: applications.length,
-                        completed: applications.filter(app => app.status === 'approved' && app.event?.status === 'completed').length,
-                        earnings: applications
-                            .filter(app => app.status === 'approved' && app.event?.status === 'completed')
-                            .reduce((sum, app) => sum + (app.event?.payment || 0), 0)
-                    };
-
-                    // Загружаем отзывы
-                    const reviews = await window.app.apiRequest(`/api/reviews/volunteer/${window.app.currentUser.id}`);
-                    stats.reviews = reviews.length;
-
-                    this.profileStats = stats;
-                    this.displayStatistics(stats);
-
-                } catch (error) {
-                    console.error('Error loading statistics:', error);
-                    // Показываем нули в случае ошибки
-                    this.displayStatistics({ total: 0, completed: 0, earnings: 0, reviews: 0 });
-                }
-            }
-
-            displayStatistics(stats) {
-                document.getElementById('totalEvents').textContent = stats.total;
-                document.getElementById('completedEvents').textContent = stats.completed;
-                document.getElementById('totalEarnings').textContent = this.formatMoney(stats.earnings);
-                document.getElementById('reviewsCount').textContent = stats.reviews;
-            }
-
-            async loadRecentActivity() {
-                try {
-                    // Загружаем последние заявки
-                    const applications = await window.app.apiRequest('/api/applications/my');
-                    const recentApplications = applications
-                        .sort((a, b) => new Date(b.applied_at) - new Date(a.applied_at))
-                        .slice(0, 5);
-
-                    this.displayRecentActivity(recentApplications);
-
-                } catch (error) {
-                    console.error('Error loading recent activity:', error);
-                    document.getElementById('recentActivity').innerHTML = `
-                        <div class="text-center" style="padding: var(--spacing-lg); color: var(--tg-theme-hint-color);">
-                            <p>Не удалось загрузить активность</p>
-                        </div>
-                    `;
-                }
-            }
-
-            displayRecentActivity(activities) {
-                const container = document.getElementById('recentActivity');
-
-                if (activities.length === 0) {
-                    container.innerHTML = `
-                        <div class="text-center" style="padding: var(--spacing-lg); color: var(--tg-theme-hint-color);">
-                            <p>Пока нет активности</p>
-                            <p style="font-size: var(--font-size-sm);">Подайте заявку на мероприятие, чтобы начать!</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                const activityHTML = activities.map(activity => {
-                    const statusIcons = {
-                        pending: '⏳',
-                        approved: '✅',
-                        rejected: '❌'
-                    };
-
-                    const statusLabels = {
-                        pending: 'Заявка подана',
-                        approved: 'Заявка одобрена',
-                        rejected: 'Заявка отклонена'
-                    };
-
-                    return `
-                        <div class="activity-item">
-                            <div class="activity-icon">${statusIcons[activity.status]}</div>
-                            <div class="activity-content">
-                                <div class="activity-title">
-                                    ${statusLabels[activity.status]}: ${activity.event?.title || 'Мероприятие'}
-                                </div>
-                                <div class="activity-time">
-                                    ${this.formatRelativeTime(activity.applied_at)}
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-
-                container.innerHTML = activityHTML;
-            }
-
-            loadAchievements() {
-                const achievements = this.calculateAchievements();
-
-                if (achievements.length === 0) return;
-
-                document.getElementById('achievementsCard').style.display = 'block';
-
-                const achievementsHTML = achievements.map(achievement => `
-                    <div class="achievement-item">
-                        <div class="achievement-icon">${achievement.icon}</div>
-                        <div class="achievement-content">
-                            <div class="achievement-title">${achievement.title}</div>
-                            <div class="achievement-description">${achievement.description}</div>
-                        </div>
-                    </div>
-                `).join('');
-
-                document.getElementById('achievementsList').innerHTML = achievementsHTML;
-            }
-
-            calculateAchievements() {
-                const achievements = [];
-                const stats = this.profileStats;
-
-                if (stats.total >= 1) {
-                    achievements.push({
-                        icon: '🎯',
-                        title: 'Первый шаг',
-                        description: 'Подали первую заявку'
-                    });
-                }
-
-                if (stats.completed >= 1) {
-                    achievements.push({
-                        icon: '✅',
-                        title: 'Дебют',
-                        description: 'Завершили первое мероприятие'
-                    });
-                }
-
-                if (stats.completed >= 5) {
-                    achievements.push({
-                        icon: '⭐',
-                        title: 'Опытный волонтёр',
-                        description: 'Завершили 5 мероприятий'
-                    });
-                }
-
-                if (stats.earnings >= 10000) {
-                    achievements.push({
-                        icon: '💰',
-                        title: 'Первые 10К',
-                        description: 'Заработали больше 10,000 рублей'
-                    });
-                }
-
-                if (this.currentProfile?.rating >= 4.5) {
-                    achievements.push({
-                        icon: '🏆',
-                        title: 'Отличный рейтинг',
-                        description: 'Рейтинг выше 4.5 звезд'
-                    });
-                }
-
-                return achievements;
-            }
-
-            toggleEditMode() {
-                this.isEditMode = !this.isEditMode;
-                const form = document.getElementById('profileForm');
-                const editToggle = document.getElementById('editToggle');
-
-                if (this.isEditMode) {
-                    form.classList.add('edit-mode');
-                    editToggle.textContent = '👁️ Просмотр';
-                    this.showEditFields();
-                } else {
-                    form.classList.remove('edit-mode');
-                    editToggle.textContent = '✏️ Редактировать';
-                    this.hideEditFields();
-                }
-            }
-
-            showEditFields() {
-                const fields = ['fullName', 'city', 'volunteerType', 'skills', 'resume'];
-                fields.forEach(fieldId => {
-                    document.getElementById(fieldId).style.display = 'none';
-                    document.getElementById(fieldId + 'Input').style.display = 'block';
-                });
-            }
-
-            hideEditFields() {
-                const fields = ['fullName', 'city', 'volunteerType', 'skills', 'resume'];
-                fields.forEach(fieldId => {
-                    document.getElementById(fieldId).style.display = 'block';
-                    document.getElementById(fieldId + 'Input').style.display = 'none';
-                });
-            }
-
-            async saveProfile() {
-                try {
-                    const profileData = {
-                        full_name: document.getElementById('fullNameInput').value.trim(),
-                        city: document.getElementById('cityInput').value.trim(),
-                        volunteer_type: document.getElementById('volunteerTypeInput').value,
-                        skills: document.getElementById('skillsInput').value.trim(),
-                        resume: document.getElementById('resumeInput').value.trim()
-                    };
-
-                    await window.app.apiRequest('/api/auth/my-profile', {
-                        method: 'PUT',
-                        body: JSON.stringify(profileData)
-                    });
-
-                    // Обновляем текущий профиль
-                    this.currentProfile = { ...this.currentProfile, ...profileData };
-                    this.displayProfile(this.currentProfile);
-                    this.toggleEditMode();
-
-                    window.app.showSuccess('Профиль успешно сохранён!');
-
-                } catch (error) {
-                    console.error('Error saving profile:', error);
-                    window.app.showError('Ошибка при сохранении профиля: ' + error.message);
-                }
-            }
-
-            cancelEdit() {
-                this.displayProfile(this.currentProfile);
-                this.toggleEditMode();
-            }
-
-            async deleteProfile() {
-                const confirmed = confirm('⚠️ ВНИМАНИЕ!\n\nВы действительно хотите удалить свой профиль?\n\nЭто действие нельзя отменить. Будут удалены:\n- Ваш профиль\n- Все ваши заявки\n- Все отзывы\n\nПродолжить?');
-                if (!confirmed) return;
-
-                const doubleConfirm = confirm('Последнее предупреждение!\n\nВы точно хотите НАВСЕГДА удалить свой профиль?');
-                if (!doubleConfirm) return;
-
-                try {
-                    await window.app.apiRequest('/api/auth/my-profile', {
-                        method: 'DELETE'
-                    });
-
-                    window.app.showSuccess('Профиль удален. Вы будете перенаправлены на главную страницу.');
 
                     setTimeout(() => {
                         window.location.href = '/';
                     }, 2000);
-
-                } catch (error) {
-                    console.error('Error deleting profile:', error);
-                    window.app.showError('Ошибка при удалении профиля: ' + error.message);
+                } else {
+                    throw new Error('Failed to delete profile');
                 }
-            }
-
-            // Утилиты
-            getVolunteerTypeLabel(type) {
-                const labels = {
-                    'студент': '🎓 Студент',
-                    'фрилансер': '💻 Фрилансер',
-                    'профи': '⭐ Профи'
-                };
-                return labels[type] || type;
-            }
-
-            formatMoney(amount) {
-                if (!amount) return '0 ₽';
-                return new Intl.NumberFormat('ru-RU').format(amount) + ' ₽';
-            }
-
-            formatRelativeTime(dateString) {
-                const date = new Date(dateString);
-                const now = new Date();
-                const diffInSeconds = Math.floor((now - date) / 1000);
-
-                if (diffInSeconds < 60) return 'Только что';
-                if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} мин. назад`;
-                if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} ч. назад`;
-                if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} дн. назад`;
-
-                return date.toLocaleDateString('ru-RU');
+            } catch (error) {
+                console.error('Error deleting profile:', error);
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ Ошибка удаления профиля');
+                }
             }
         }
 
-        // Глобальные функции
-        function shareProfile() {
-            const shareText = `Посмотрите мой профиль волонтёра!\n\nРейтинг: ${document.querySelector('.rating-value').textContent} ⭐\nЗавершено мероприятий: ${document.getElementById('completedEvents').textContent}`;
+        async function loadProfile() {
+            try {
+                const response = await fetch(`/api/auth/check?telegram_id=${currentUser.id}`);
+                const data = await response.json();
+                
+                if (data.registered && data.user.role === 'volunteer') {
+                    currentProfile = data.user;
+                    displayProfile(currentProfile);
+                } else {
+                    window.location.href = '/';
+                }
+            } catch (error) {
+                console.error('Error loading profile:', error);
+                window.location.href = '/';
+            }
+        }
 
-            if (window.app?.tg?.sendData) {
-                window.app.tg.sendData(JSON.stringify({
-                    action: 'share',
-                    text: shareText
-                }));
-            } else if (navigator.share) {
-                navigator.share({
-                    title: 'Мой профиль волонтёра',
-                    text: shareText
+        function displayProfile(profile) {
+            document.getElementById('fullName').textContent = profile.full_name || 'Не указано';
+            document.getElementById('city').textContent = profile.city || 'Не указан';
+            document.getElementById('volunteerType').textContent = profile.volunteer_type || 'Не указан';
+            document.getElementById('skills').textContent = profile.skills || 'Не указаны';
+            document.getElementById('resume').textContent = profile.resume || 'Не указано'; // НОВОЕ
+            document.getElementById('rating').textContent = `⭐ ${profile.rating || 0}`;
+
+            if (profile.created_at) {
+                const date = new Date(profile.created_at).toLocaleDateString('ru-RU');
+                document.getElementById('createdAt').textContent = date;
+            }
+
+            // Заполняем поля ввода
+            document.getElementById('fullNameInput').value = profile.full_name || '';
+            document.getElementById('cityInput').value = profile.city || '';
+            document.getElementById('volunteerTypeInput').value = profile.volunteer_type || 'студент';
+            document.getElementById('skillsInput').value = profile.skills || '';
+            document.getElementById('resumeInput').value = profile.resume || ''; // НОВОЕ
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const editBtn = document.getElementById('editBtn');
+            const profileForm = document.getElementById('profileForm');
+            const editControls = document.querySelector('.edit-controls');
+            
+            if (isEditMode) {
+                editBtn.innerHTML = '<span class="edit-icon">👁️</span><span class="edit-text">Просмотр</span>';
+                editControls.classList.add('active');
+                
+                document.querySelectorAll('.profile-field').forEach(field => {
+                    const value = field.querySelector('.field-value');
+                    const input = field.querySelector('.field-input');
+                    
+                    if (value && input) {
+                        value.style.display = 'none';
+                        input.style.display = 'block';
+                    }
                 });
             } else {
-                // Fallback - копируем в буфер обмена
-                navigator.clipboard.writeText(shareText).then(() => {
-                    window.app.showSuccess('Информация скопирована в буфер обмена!');
+                editBtn.innerHTML = '<span class="edit-icon">✏️</span><span class="edit-text">Редактировать</span>';
+                editControls.classList.remove('active');
+                
+                document.querySelectorAll('.profile-field').forEach(field => {
+                    const value = field.querySelector('.field-value');
+                    const input = field.querySelector('.field-input');
+                    
+                    if (value && input) {
+                        value.style.display = 'block';
+                        input.style.display = 'none';
+                    }
                 });
             }
         }
 
         async function saveProfile() {
-            await profilePage.saveProfile();
+            const profileData = {
+                full_name: document.getElementById('fullNameInput').value,
+                city: document.getElementById('cityInput').value,
+                volunteer_type: document.getElementById('volunteerTypeInput').value,
+                skills: document.getElementById('skillsInput').value
+            };
+            
+            try {
+                const response = await fetch(`/api/auth/profile?telegram_id=${currentUser.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(profileData)
+                });
+                
+                if (response.ok) {
+                    currentProfile = { ...currentProfile, ...profileData };
+                    displayProfile(currentProfile);
+                    toggleEditMode();
+                    
+                    if (tg && tg.showAlert) {
+                        tg.showAlert('✅ Профиль сохранён!');
+                    }
+                } else {
+                    throw new Error('Failed to save profile');
+                }
+                
+            } catch (error) {
+                console.error('Error saving profile:', error);
+                if (tg && tg.showAlert) {
+                    tg.showAlert('❌ Ошибка сохранения профиля');
+                }
+            }
         }
 
-        async function cancelEdit() {
-            profilePage.cancelEdit();
+        function cancelEdit() {
+            displayProfile(currentProfile);
+            toggleEditMode();
         }
 
-        async function deleteProfile() {
-            await profilePage.deleteProfile();
-        }
-
-        // Инициализация страницы
-        const profilePage = new VolunteerProfilePage();
-        document.addEventListener('DOMContentLoaded', () => {
-            profilePage.init();
-        });
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>

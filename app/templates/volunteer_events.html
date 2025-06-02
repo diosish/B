@@ -5,696 +5,473 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Мероприятия</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link href="/static/css/unified-styles.css" rel="stylesheet">
-
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/css/navigation.css" rel="stylesheet">
     <style>
-        /* Специфичные стили для страницы мероприятий */
-        .filters-container {
-            background: var(--tg-theme-secondary-bg-color);
-            padding: var(--spacing-md);
-            border-radius: var(--radius-lg);
-            margin-bottom: var(--spacing-lg);
-            position: sticky;
-            top: 0;
-            z-index: 50;
+        body {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 10px;
+            padding-bottom: 90px;
+            box-sizing: border-box;
+            width: 100%;
+            overflow-x: hidden;
         }
 
-        .filters-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: var(--spacing-sm);
-            margin-bottom: var(--spacing-sm);
+        .container {
+            width: 100%;
+            max-width: 100%;
+            padding: 0 10px;
+            margin: 0 auto;
+            box-sizing: border-box;
         }
 
-        .filters-actions {
+        .telegram-card {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border: 1px solid var(--tg-theme-hint-color, #999999);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .event-card {
+            border-left: 4px solid #2678b6;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .filter-container {
             display: flex;
-            gap: var(--spacing-xs);
-            justify-content: flex-end;
-        }
-
-        .quick-filters {
-            display: flex;
-            gap: var(--spacing-xs);
+            gap: 8px;
+            margin-bottom: 16px;
             flex-wrap: wrap;
-            margin-top: var(--spacing-sm);
+            width: 100%;
         }
 
-        .quick-filter {
-            padding: var(--spacing-xs) var(--spacing-sm);
-            border: 1px solid var(--tg-theme-hint-color);
-            border-radius: var(--radius-xl);
-            background: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            font-size: var(--font-size-xs);
-            cursor: pointer;
-            transition: all var(--transition-fast);
+        .filter-input {
+            flex: 1;
+            min-width: 120px;
+            padding: 8px 12px;
+            border: 1px solid var(--tg-theme-hint-color, #999);
+            border-radius: 6px;
+            font-size: 14px;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            box-sizing: border-box;
         }
 
-        .quick-filter:hover,
-        .quick-filter.active {
-            background: var(--tg-theme-button-color);
-            color: var(--tg-theme-button-text-color);
-            border-color: var(--tg-theme-button-color);
+        .no-events {
+            text-align: center;
+            padding: 40px;
+            color: var(--tg-theme-hint-color, #666);
         }
 
-        .events-header {
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .event-info {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #666);
+            margin: 8px 0;
+            word-break: break-word;
+        }
+
+        .event-info-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: var(--spacing-md);
-        }
-
-        .events-count {
-            font-size: var(--font-size-sm);
-            color: var(--tg-theme-hint-color);
-        }
-
-        .sort-select {
-            padding: var(--spacing-xs) var(--spacing-sm);
-            border: 1px solid var(--tg-theme-hint-color);
-            border-radius: var(--radius-md);
-            background: var(--tg-theme-bg-color);
-            color: var(--tg-theme-text-color);
-            font-size: var(--font-size-sm);
-        }
-
-        /* Стили для карточек событий */
-        .event-card {
-            transition: transform var(--transition-fast);
-            cursor: pointer;
-        }
-
-        .event-card:hover {
-            transform: translateY(-2px);
-        }
-
-        .event-header-content {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .event-title {
-            font-size: var(--font-size-md);
-            font-weight: 600;
-            margin: 0 0 var(--spacing-xs) 0;
-            color: var(--tg-theme-text-color);
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .event-payment {
-            text-align: right;
-            margin-left: var(--spacing-md);
-        }
-
-        .payment-amount {
-            font-size: var(--font-size-lg);
-            font-weight: 700;
-            color: var(--color-success);
-        }
-
-        .payment-label {
-            font-size: var(--font-size-sm);
-            color: var(--tg-theme-hint-color);
-        }
-
-        .event-info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: var(--spacing-sm);
-            margin: var(--spacing-md) 0;
-        }
-
-        .info-item {
-            display: flex;
-            align-items: center;
-            gap: var(--spacing-xs);
-            font-size: var(--font-size-sm);
-        }
-
-        .info-icon {
-            flex-shrink: 0;
-        }
-
-        .info-value {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .event-tags {
-            display: flex;
+            margin: 4px 0;
             flex-wrap: wrap;
-            gap: var(--spacing-xs);
-            margin: var(--spacing-sm) 0;
+            gap: 8px;
         }
 
-        .tag {
-            padding: 2px var(--spacing-xs);
-            border-radius: var(--radius-sm);
-            font-size: var(--font-size-xs);
-            font-weight: 500;
+        .telegram-button {
+            background: var(--tg-theme-button-color, #2678b6);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
-        .tag-payment {
-            background: rgba(40, 167, 69, 0.15);
-            color: var(--color-success);
-        }
-
-        .tag-work-type {
-            background: rgba(23, 162, 184, 0.15);
-            color: var(--color-info);
-        }
-
-        .tag-urgent {
-            background: rgba(255, 193, 7, 0.15);
-            color: #856404;
-            animation: pulse 2s infinite;
-        }
-
-        .tag-high-pay {
-            background: rgba(220, 53, 69, 0.15);
-            color: var(--color-danger);
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
-        .event-description {
-            margin: var(--spacing-sm) 0;
-        }
-
-        .event-description p {
-            margin: 0;
-            font-size: var(--font-size-sm);
-            line-height: 1.4;
-            color: var(--tg-theme-hint-color);
-        }
-
-        .action-buttons {
+        .button-container {
             display: flex;
-            gap: var(--spacing-xs);
-            margin-top: var(--spacing-md);
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
         }
 
-        .pull-to-refresh {
-            text-align: center;
-            padding: var(--spacing-lg);
-            color: var(--tg-theme-hint-color);
-            font-size: var(--font-size-sm);
+        .button-container .telegram-button {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .applied-badge {
+            background: #28a745;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            display: inline-block;
+            margin-top: 8px;
+            white-space: nowrap;
+        }
+
+        .navigation-menu {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--tg-theme-bg-color, #ffffff);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 8px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+        }
+
+        .nav-btn {
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            min-width: 80px;
+        }
+
+        .nav-btn.active {
+            background: var(--tg-theme-button-color, #2678b6);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .nav-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
         }
 
         @media (max-width: 480px) {
-            .filters-row {
-                grid-template-columns: 1fr;
+            .container {
+                padding: 0 8px;
             }
 
-            .event-info-grid {
-                grid-template-columns: repeat(2, 1fr);
+            .telegram-card {
+                padding: 12px;
             }
 
-            .action-buttons {
+            .filter-container {
                 flex-direction: column;
+            }
+
+            .filter-input {
+                width: 100%;
+            }
+
+            .button-container {
+                flex-direction: column;
+            }
+
+            .button-container .telegram-button {
+                width: 100%;
+            }
+
+            .nav-btn {
+                font-size: 13px;
+                padding: 10px 12px;
+                min-width: 70px;
+            }
+
+            .event-info-row {
+                flex-direction: column;
+                gap: 4px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Шапка страницы -->
-    <div class="page-header">
-        <h1 class="page-title">📅 Мероприятия</h1>
-        <p class="page-subtitle">Найдите подходящую работу волонтёром</p>
-    </div>
-
-    <!-- Фильтры -->
-    <div class="filters-container">
-        <div class="filters-row">
-            <input type="text" class="form-input" id="cityFilter" placeholder="🔍 Поиск по городу">
-            <select class="form-input" id="workTypeFilter">
-                <option value="">Все типы работ</option>
-                <option value="регистрация">📝 Регистрация</option>
-                <option value="логистика">📦 Логистика</option>
-                <option value="техническое">🔧 Техническое</option>
-                <option value="информационное">💬 Информационное</option>
-                <option value="промо">📢 Промо</option>
-                <option value="обслуживание">🍽️ Обслуживание</option>
-                <option value="другое">🔹 Другое</option>
-            </select>
+    <div class="container">
+        <div class="telegram-card">
+            <h3>📅 Доступные мероприятия</h3>
+            <div class="filter-container">
+                <input type="text" class="filter-input" id="cityFilter" placeholder="🔍 Город">
+                <select class="filter-input" id="workTypeFilter">
+                    <option value="">Все типы работ</option>
+                    <option value="регистрация">📝 Регистрация</option>
+                    <option value="логистика">📦 Логистика</option>
+                    <option value="техническое">🔧 Техническое</option>
+                    <option value="информационное">💬 Информационное</option>
+                    <option value="промо">📢 Промо</option>
+                    <option value="обслуживание">🍽️ Обслуживание</option>
+                    <option value="другое">🔹 Другое</option>
+                </select>
+            </div>
         </div>
 
-        <div class="filters-row">
-            <input type="number" class="form-input" id="minPaymentFilter" placeholder="💰 Мин. оплата (₽)">
-            <select class="form-input" id="dateFilter">
-                <option value="">Любая дата</option>
-                <option value="today">Сегодня</option>
-                <option value="tomorrow">Завтра</option>
-                <option value="week">На этой неделе</option>
-                <option value="month">В этом месяце</option>
-            </select>
-        </div>
-
-        <div class="filters-actions">
-            <button class="btn btn-ghost btn-sm" id="clearFilters">Очистить</button>
-            <button class="btn btn-primary btn-sm" id="applyFilters">Применить</button>
-        </div>
-
-        <div class="quick-filters">
-            <button class="quick-filter" data-filter="high-pay">💎 Высокая оплата</button>
-            <button class="quick-filter" data-filter="urgent">⚡ Срочно</button>
-            <button class="quick-filter" data-filter="today">📅 Сегодня</button>
-            <button class="quick-filter" data-filter="remote">🏠 Удаленно</button>
+        <div id="eventsList">
+            <div class="loading">
+                <div class="spinner-border" role="status"></div>
+                <p>Загружаем мероприятия...</p>
+            </div>
         </div>
     </div>
 
-    <!-- Заголовок списка -->
-    <div class="events-header">
-        <div class="events-count" id="eventsCount">Загружаем...</div>
-        <select class="sort-select" id="sortSelect">
-            <option value="date">По дате</option>
-            <option value="payment">По оплате</option>
-            <option value="distance">По расстоянию</option>
-            <option value="created">По новизне</option>
-        </select>
+    <div class="navigation-menu">
+        <button class="nav-btn" onclick="nav.goToVolunteerProfile()">👤 Профиль</button>
+        <button class="nav-btn active" onclick="nav.goToVolunteerEvents()">📅 Мероприятия</button>
+        <button class="nav-btn" onclick="nav.goToVolunteerApplications()">📋 Заявки</button>
     </div>
-
-    <!-- Pull to refresh -->
-    <div class="pull-to-refresh" id="pullToRefresh" style="display: none;">
-        <div class="loading-spinner"></div>
-        <p>Обновление списка...</p>
-    </div>
-
-    <!-- Список мероприятий -->
-    <div id="eventsList">
-        <!-- Сюда будут загружены мероприятия -->
-    </div>
-
-    <!-- Навигация -->
-    <nav class="bottom-nav">
-        <a href="/volunteer/profile" class="nav-item">
-            <span class="nav-icon">👤</span>
-            <span class="nav-label">Профиль</span>
-        </a>
-        <a href="/volunteer/events" class="nav-item active">
-            <span class="nav-icon">📅</span>
-            <span class="nav-label">Мероприятия</span>
-        </a>
-        <a href="/volunteer/applications" class="nav-item">
-            <span class="nav-icon">📋</span>
-            <span class="nav-label">Заявки</span>
-        </a>
-        <a href="/volunteer/reviews" class="nav-item">
-            <span class="nav-icon">⭐</span>
-            <span class="nav-label">Отзывы</span>
-        </a>
-    </nav>
-
-    <script src="/static/js/components/event-card.js"></script>
+    <script src="/static/js/role-guard.js"></script>
+    <script src="/static/js/auth.js"></script>
     <script src="/static/js/navigation.js"></script>
     <script>
-        class VolunteerEventsPage {
-            constructor() {
-                this.eventsList = null;
-                this.allEvents = [];
-                this.myApplications = new Set();
-                this.filters = {};
-                this.isLoading = false;
-                this.pullToRefreshEnabled = true;
+        let tg = window.Telegram?.WebApp;
+        let currentUser = null;
+        let allEvents = [];
+        let myApplications = new Set();
+
+        function viewEventDetails(eventId) {
+            window.location.href = `/event/${eventId}`;
+        }
+
+        async function init() {
+
+            const roleCheckPassed = await roleGuard.init();
+            if (!roleCheckPassed || !roleGuard.checkVolunteerAccess()) {
+                return;
             }
 
-            async init() {
-                console.log('📅 Initializing volunteer events page...');
+            console.log('📅 Initializing events page...');
 
-                // Ждем готовности приложения
-                await this.waitForApp();
-
-                // Проверяем роль пользователя
-                const roleCheck = await this.checkUserRole();
-                if (!roleCheck) return;
-
-                // Инициализируем компоненты
-                this.initializeEventsList();
-                this.setupEventListeners();
-                this.setupPullToRefresh();
-
-                // Загружаем данные
-                await this.loadData();
-            }
-
-            async waitForApp() {
-                return new Promise(resolve => {
-                    if (window.app?.isReady) {
-                        resolve();
-                    } else {
-                        window.addEventListener('app:ready', resolve);
-                    }
-                });
-            }
-
-            async checkUserRole() {
-                try {
-                    const userData = await window.app.apiRequest('/api/auth/my-profile');
-                    if (!userData.registered || userData.user.role !== 'volunteer') {
-                        window.location.href = '/';
-                        return false;
-                    }
-                    return true;
-                } catch (error) {
-                    console.error('Role check failed:', error);
-                    window.location.href = '/';
-                    return false;
-                }
-            }
-
-            initializeEventsList() {
-                this.eventsList = new EventsList('eventsList', {
-                    userRole: 'volunteer',
-                    emptyMessage: 'Пока нет доступных мероприятий. Попробуйте изменить фильтры или зайдите позже.'
-                });
-            }
-
-            setupEventListeners() {
-                // Фильтры
-                document.getElementById('applyFilters').addEventListener('click', this.applyFilters.bind(this));
-                document.getElementById('clearFilters').addEventListener('click', this.clearFilters.bind(this));
-
-                // Быстрые фильтры
-                document.querySelectorAll('.quick-filter').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        this.applyQuickFilter(e.target.dataset.filter);
-                    });
-                });
-
-                // Сортировка
-                document.getElementById('sortSelect').addEventListener('change', this.applySort.bind(this));
-
-                // Поиск в реальном времени
-                document.getElementById('cityFilter').addEventListener('input',
-                    this.debounce(this.applyFilters.bind(this), 500)
-                );
-            }
-
-            setupPullToRefresh() {
-                let startY = 0;
-                let currentY = 0;
-                let isPulling = false;
-
-                document.addEventListener('touchstart', (e) => {
-                    if (window.scrollY === 0) {
-                        startY = e.touches[0].clientY;
-                        isPulling = false;
-                    }
-                });
-
-                document.addEventListener('touchmove', (e) => {
-                    if (window.scrollY === 0 && startY > 0) {
-                        currentY = e.touches[0].clientY;
-                        const pullDistance = currentY - startY;
-
-                        if (pullDistance > 50 && !isPulling) {
-                            isPulling = true;
-                            document.getElementById('pullToRefresh').style.display = 'block';
-                        }
-                    }
-                });
-
-                document.addEventListener('touchend', () => {
-                    if (isPulling) {
-                        this.refreshData();
-                    }
-                    startY = 0;
-                    isPulling = false;
-                });
-            }
-
-            async loadData() {
-                try {
-                    this.setLoading(true);
-
-                    // Загружаем мероприятия и заявки параллельно
-                    const [events, applications] = await Promise.all([
-                        this.loadEvents(),
-                        this.loadMyApplications()
-                    ]);
-
-                    this.allEvents = events;
-                    this.updateEventsCount(events.length);
-
-                    // Обновляем список с учетом заявок
-                    this.renderEvents();
-
-                } catch (error) {
-                    console.error('Error loading data:', error);
-                    window.app.showError('Ошибка загрузки данных: ' + error.message);
-                } finally {
-                    this.setLoading(false);
-                }
-            }
-
-            async loadEvents() {
-                const response = await window.app.apiRequest('/api/events/');
-                return response.filter(event => event.status === 'active');
-            }
-
-            async loadMyApplications() {
-                try {
-                    const applications = await window.app.apiRequest('/api/applications/my');
-                    this.myApplications = new Map();
-
-                    applications.forEach(app => {
-                        this.myApplications.set(app.event_id, app.status);
-                    });
-
-                    return applications;
-                } catch (error) {
-                    console.error('Error loading applications:', error);
-                    return [];
-                }
-            }
-
-            renderEvents() {
-                // Применяем текущие фильтры
-                let filteredEvents = this.applyCurrentFilters(this.allEvents);
-
-                // Применяем сортировку
-                filteredEvents = this.applySorting(filteredEvents);
-
-                // Обогащаем события статусами заявок
-                const eventsWithStatus = filteredEvents.map(event => ({
-                    ...event,
-                    applicationStatus: this.myApplications.get(event.id) || null
-                }));
-
-                this.eventsList.render(eventsWithStatus);
-                this.updateEventsCount(filteredEvents.length);
-            }
-
-            applyFilters() {
-                this.filters = {
-                    city: document.getElementById('cityFilter').value.trim(),
-                    workType: document.getElementById('workTypeFilter').value,
-                    minPayment: parseInt(document.getElementById('minPaymentFilter').value) || 0,
-                    date: document.getElementById('dateFilter').value
+            if (tg) {
+                tg.ready();
+                tg.expand();
+                currentUser = tg.initDataUnsafe?.user || {
+                    id: 123456789,
+                    first_name: 'Test',
+                    last_name: 'User'
                 };
-
-                this.renderEvents();
+            } else {
+                currentUser = {
+                    id: 123456789,
+                    first_name: 'Test',
+                    last_name: 'User'
+                };
             }
 
-            clearFilters() {
-                document.getElementById('cityFilter').value = '';
-                document.getElementById('workTypeFilter').value = '';
-                document.getElementById('minPaymentFilter').value = '';
-                document.getElementById('dateFilter').value = '';
+            // Загружаем мои заявки
+            await loadMyApplications();
+            // Загружаем мероприятия
+            await loadEvents();
+            // Настраиваем фильтры
+            setupFilters();
+        }
 
-                // Очищаем быстрые фильтры
-                document.querySelectorAll('.quick-filter').forEach(btn => {
-                    btn.classList.remove('active');
+        function getAuthHeaders() {
+            const headers = {};
+            if (tg && tg.initData) {
+                headers['Authorization'] = tg.initData;
+            } else {
+                headers['Authorization'] = 'test_data';
+            }
+            return headers;
+        }
+
+        async function loadMyApplications() {
+            try {
+                const response = await fetch(`/api/applications/volunteer/${currentUser.id}`, {
+                    headers: getAuthHeaders()
                 });
 
-                this.filters = {};
-                this.renderEvents();
-            }
-
-            applyQuickFilter(filterType) {
-                // Переключаем активное состояние кнопки
-                const button = document.querySelector(`[data-filter="${filterType}"]`);
-                button.classList.toggle('active');
-
-                // Применяем фильтр
-                switch (filterType) {
-                    case 'high-pay':
-                        this.filters.highPay = button.classList.contains('active');
-                        break;
-                    case 'urgent':
-                        this.filters.urgent = button.classList.contains('active');
-                        break;
-                    case 'today':
-                        this.filters.today = button.classList.contains('active');
-                        break;
-                    case 'remote':
-                        this.filters.remote = button.classList.contains('active');
-                        break;
+                if (response.ok) {
+                    const applications = await response.json();
+                    myApplications = new Set(applications.map(app => app.event_id));
+                    console.log('My applications loaded:', myApplications.size);
                 }
-
-                this.renderEvents();
-            }
-
-            applyCurrentFilters(events) {
-                let filtered = [...events];
-
-                if (this.filters.city) {
-                    filtered = filtered.filter(event =>
-                        event.city && event.city.toLowerCase().includes(this.filters.city.toLowerCase())
-                    );
-                }
-
-                if (this.filters.workType) {
-                    filtered = filtered.filter(event => event.work_type === this.filters.workType);
-                }
-
-                if (this.filters.minPayment) {
-                    filtered = filtered.filter(event => event.payment >= this.filters.minPayment);
-                }
-
-                if (this.filters.date) {
-                    filtered = this.applyDateFilter(filtered, this.filters.date);
-                }
-
-                if (this.filters.highPay) {
-                    filtered = filtered.filter(event => event.payment > 3000);
-                }
-
-                if (this.filters.urgent) {
-                    filtered = filtered.filter(event => this.isUrgent(event));
-                }
-
-                if (this.filters.today) {
-                    filtered = filtered.filter(event => this.isToday(event));
-                }
-
-                return filtered;
-            }
-
-            applyDateFilter(events, dateFilter) {
-                const now = new Date();
-                const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-                switch (dateFilter) {
-                    case 'today':
-                        return events.filter(event => {
-                            if (!event.date) return false;
-                            const eventDate = new Date(event.date);
-                            return eventDate >= today && eventDate < new Date(today.getTime() + 24 * 60 * 60 * 1000);
-                        });
-                    case 'tomorrow':
-                        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-                        return events.filter(event => {
-                            if (!event.date) return false;
-                            const eventDate = new Date(event.date);
-                            return eventDate >= tomorrow && eventDate < new Date(tomorrow.getTime() + 24 * 60 * 60 * 1000);
-                        });
-                    case 'week':
-                        const weekEnd = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-                        return events.filter(event => {
-                            if (!event.date) return false;
-                            const eventDate = new Date(event.date);
-                            return eventDate >= today && eventDate <= weekEnd;
-                        });
-                    case 'month':
-                        const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-                        return events.filter(event => {
-                            if (!event.date) return false;
-                            const eventDate = new Date(event.date);
-                            return eventDate >= today && eventDate <= monthEnd;
-                        });
-                    default:
-                        return events;
-                }
-            }
-
-            applySorting(events) {
-                const sortType = document.getElementById('sortSelect').value;
-
-                switch (sortType) {
-                    case 'payment':
-                        return events.sort((a, b) => (b.payment || 0) - (a.payment || 0));
-                    case 'date':
-                        return events.sort((a, b) => {
-                            if (!a.date && !b.date) return 0;
-                            if (!a.date) return 1;
-                            if (!b.date) return -1;
-                            return new Date(a.date) - new Date(b.date);
-                        });
-                    case 'created':
-                        return events.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                    default:
-                        return events;
-                }
-            }
-
-            async applySort() {
-                this.renderEvents();
-            }
-
-            async refreshData() {
-                document.getElementById('pullToRefresh').style.display = 'block';
-                await this.loadData();
-                setTimeout(() => {
-                    document.getElementById('pullToRefresh').style.display = 'none';
-                }, 1000);
-            }
-
-            setLoading(loading) {
-                this.isLoading = loading;
-                const button = document.getElementById('applyFilters');
-                if (button) {
-                    button.disabled = loading;
-                    button.textContent = loading ? 'Загрузка...' : 'Применить';
-                }
-            }
-
-            updateEventsCount(count) {
-                const countElement = document.getElementById('eventsCount');
-                if (countElement) {
-                    countElement.textContent = `Найдено: ${count} мероприятий`;
-                }
-            }
-
-            isUrgent(event) {
-                if (!event.date) return false;
-                const eventDate = new Date(event.date);
-                const now = new Date();
-                const hoursUntilEvent = (eventDate - now) / (1000 * 60 * 60);
-                return hoursUntilEvent > 0 && hoursUntilEvent < 24;
-            }
-
-            isToday(event) {
-                if (!event.date) return false;
-                const eventDate = new Date(event.date);
-                const today = new Date();
-                return eventDate.toDateString() === today.toDateString();
-            }
-
-            debounce(func, wait) {
-                let timeout;
-                return function executedFunction(...args) {
-                    const later = () => {
-                        clearTimeout(timeout);
-                        func(...args);
-                    };
-                    clearTimeout(timeout);
-                    timeout = setTimeout(later, wait);
-                };
+            } catch (error) {
+                console.error('Error loading my applications:', error);
             }
         }
 
-        // Инициализация страницы
-        const eventsPage = new VolunteerEventsPage();
-        document.addEventListener('DOMContentLoaded', () => {
-            eventsPage.init();
-        });
+        async function loadEvents() {
+            try {
+                const response = await fetch('/api/events/', {
+                    headers: getAuthHeaders()
+                });
+
+                if (response.ok) {
+                    allEvents = await response.json();
+                    console.log('Events loaded:', allEvents.length);
+                    displayEvents(allEvents);
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Error loading events:', error);
+                document.getElementById('eventsList').innerHTML = `
+                    <div class="telegram-card">
+                        <div class="no-events">
+                            <p>❌ Ошибка загрузки мероприятий</p>
+                            <button class="telegram-button" onclick="loadEvents()">
+                                🔄 Попробовать снова
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function displayEvents(events) {
+            const eventsList = document.getElementById('eventsList');
+
+            if (events.length === 0) {
+                eventsList.innerHTML = `
+                    <div class="telegram-card">
+                        <div class="no-events">
+                            <h5>📭 Нет доступных мероприятий</h5>
+                            <p>Попробуйте изменить фильтры или зайдите позже</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
+            eventsList.innerHTML = events.map(event => {
+                const hasApplied = myApplications.has(event.id);
+
+                return `
+                    <div class="telegram-card event-card">
+                        <h6><strong>${event.title}</strong></h6>
+                        ${event.description ? `<p style="font-size: 14px; margin: 8px 0;">${event.description.substring(0, 150)}${event.description.length > 150 ? '...' : ''}</p>` : ''}
+
+                        <div class="event-info">
+                            <div class="event-info-row">
+                                <span>📍 ${event.city || 'Не указан'}</span>
+                                <span><strong>💰 ${event.payment || 0} ₽</strong></span>
+                            </div>
+                            ${event.date ? `<div>📅 ${new Date(event.date).toLocaleDateString('ru-RU')}</div>` : ''}
+                            ${event.work_type ? `<div>🏷️ ${event.work_type}</div>` : ''}
+                            ${event.duration ? `<div>⏰ ${event.duration} ч</div>` : ''}
+                        </div>
+
+                        <div class="button-container">
+                            <button class="telegram-button" onclick="viewEventDetails(${event.id})">
+                                👁️ Подробнее
+                            </button>
+                            ${hasApplied ?
+                                '<span class="applied-badge">✅ Заявка подана</span>' :
+                                `<button class="telegram-button" onclick="applyToEvent(${event.id}, '${event.title.replace(/'/g, "\\'")}')">✋ Откликнуться</button>`
+                            }
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function applyToEvent(eventId, eventTitle) {
+            const button = event.target;
+            const originalText = button.innerHTML;
+
+            // Блокируем кнопку
+            button.disabled = true;
+            button.innerHTML = '⏳ Отправляем...';
+
+            try {
+                const response = await fetch('/api/volunteers/apply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
+                    body: JSON.stringify({
+                        event_id: eventId
+                    })
+                });
+
+                if (response.ok) {
+                    console.log('✅ Application submitted successfully');
+
+                    // Добавляем в список поданных заявок
+                    myApplications.add(eventId);
+
+                    if (tg && tg.showAlert) {
+                        tg.showAlert(`✅ Заявка на "${eventTitle}" подана!`);
+                    } else {
+                        alert(`✅ Заявка на "${eventTitle}" подана!`);
+                    }
+
+                    // Обновляем отображение
+                    displayEvents(allEvents);
+
+                } else if (response.status === 400) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Вы уже подали заявку на это мероприятие');
+                } else if (response.status === 404) {
+                    throw new Error('Необходимо зарегистрироваться как волонтёр');
+                } else {
+                    throw new Error('Ошибка при подаче заявки');
+                }
+            } catch (error) {
+                console.error('Error applying:', error);
+
+                if (tg && tg.showAlert) {
+                    tg.showAlert(`❌ ${error.message}`);
+                } else {
+                    alert(`❌ ${error.message}`);
+                }
+
+                // Восстанавливаем кнопку
+                button.disabled = false;
+                button.innerHTML = originalText;
+            }
+        }
+
+        function setupFilters() {
+            document.getElementById('cityFilter').addEventListener('input', filterEvents);
+            document.getElementById('workTypeFilter').addEventListener('change', filterEvents);
+        }
+
+        function filterEvents() {
+            const cityFilter = document.getElementById('cityFilter').value.toLowerCase();
+            const workTypeFilter = document.getElementById('workTypeFilter').value;
+
+            let filteredEvents = allEvents;
+
+            if (cityFilter) {
+                filteredEvents = filteredEvents.filter(event =>
+                    (event.city || '').toLowerCase().includes(cityFilter)
+                );
+            }
+
+            if (workTypeFilter) {
+                filteredEvents = filteredEvents.filter(event =>
+                    event.work_type === workTypeFilter
+                );
+            }
+
+            displayEvents(filteredEvents);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
 </html>
