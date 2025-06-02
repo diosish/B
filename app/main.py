@@ -1,4 +1,4 @@
-# app/main.py - ОБНОВЛЕННАЯ ВЕРСИЯ с админ авторизацией
+# app/main.py - ИСПРАВЛЕННАЯ ВЕРСИЯ
 from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -16,10 +16,10 @@ from dotenv import load_dotenv
 from .database import engine, SessionLocal
 from .models import Base
 from .routers import volunteers, organizers, events, admin, applications, auth, reviews, export
-from .routers import admin_auth  # НОВЫЙ ИМПОРТ
+from .routers import admin_auth  # Роутер админ авторизации
 from .health import router as health_router
 from .auth import get_telegram_user_flexible
-from .admin_auth import AdminActivityMiddleware, require_admin_auth, optional_admin_auth  # НОВЫЙ ИМПОРТ
+from .admin_auth import AdminActivityMiddleware, require_admin_auth, optional_admin_auth
 from .monitoring import start_background_monitoring
 from . import crud
 
@@ -133,7 +133,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 
 # Добавление middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
-app.add_middleware(AdminActivityMiddleware)  # НОВЫЙ MIDDLEWARE
+app.add_middleware(AdminActivityMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ErrorHandlingMiddleware)
 
@@ -178,7 +178,7 @@ app.include_router(reviews.router, prefix="/api/reviews", tags=["reviews"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
-# НОВЫЙ РОУТЕР для админ авторизации
+# Роутер для админ авторизации
 app.include_router(admin_auth.router, prefix="/admin", tags=["admin-auth"])
 
 
@@ -216,13 +216,14 @@ async def root(request: Request):
 
 
 # ==============================================
-# АДМИН ПАНЕЛЬ (ОБНОВЛЕННАЯ)
+# АДМИН ПАНЕЛЬ
 # ==============================================
 
 @app.get("/admin/login", response_class=HTMLResponse)
-async def admin_login_redirect(request: Request):
-    """Редирект на страницу входа админа"""
-    return RedirectResponse(url="/admin/login", status_code=302)
+async def admin_login_page_redirect(request: Request, token: str = None):
+    """Перенаправление на основную страницу входа админа"""
+    # Роутер admin_auth обрабатывает этот маршрут, но на всякий случай добавляем fallback
+    return RedirectResponse(url=f"/admin/login{'?token=' + token if token else ''}", status_code=302)
 
 
 @app.get("/admin/dashboard", response_class=HTMLResponse)
@@ -413,7 +414,7 @@ async def get_version():
         "version": "1.0.0",
         "environment": os.getenv("ENVIRONMENT", "development"),
         "build_time": "2024-01-01T00:00:00Z",
-        "admin_auth": "enabled"  # НОВОЕ ПОЛЕ
+        "admin_auth": "enabled"
     }
 
 

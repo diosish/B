@@ -1,4 +1,4 @@
-# app/admin_auth.py - Система авторизации администратора
+# app/admin_auth.py - Исправленная система авторизации администратора
 import os
 import secrets
 import hashlib
@@ -7,8 +7,9 @@ from typing import Optional, Dict
 from fastapi import HTTPException, Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-# Временное хранилище сессий (в продакшене используйте Redis)
+# Временное хранилище сессий и токенов (в продакшене используйте Redis)
 admin_sessions: Dict[str, dict] = {}
+admin_bot_tokens: Dict[str, dict] = {}
 
 security = HTTPBearer(auto_error=False)
 
@@ -18,6 +19,7 @@ class AdminAuthManager:
         self.admin_login = os.getenv("ADMIN_LOGIN", "admin")
         self.admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
         self.session_duration = timedelta(hours=8)  # Сессия действует 8 часов
+        self.token_duration = timedelta(hours=2)    # Токен из бота действует 2 часа
 
     def hash_password(self, password: str) -> str:
         """Хеширование пароля"""
@@ -27,6 +29,30 @@ class AdminAuthManager:
         """Проверка логина и пароля"""
         return (login == self.admin_login and
                 self.hash_password(password) == self.hash_password(self.admin_password))
+
+    def generate_bot_token(self) -> str:
+        """Генерация токена для доступа из бота"""
+        token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + self.token_duration
+
+        admin_bot_tokens[token] = {
+            'created_at': datetime.utcnow(),
+            'expires_at': expires_at
+        }
+
+        self.cleanup_expired_tokens()
+        return token
+
+    def validate_bot_token(self, token: str) -> bool:
+        """Проверка токена из бота"""
+        if token not in admin_bot_tokens:
+            return False
+
+        if admin_bot_tokens[token]['expires_at'] < datetime.utcnow():
+            admin_bot_tokens.pop(token, None)
+            return False
+
+        return True
 
     def create_session(self) -> str:
         """Создание новой админ сессии"""
@@ -73,20 +99,31 @@ class AdminAuthManager:
         for session_id in expired_sessions:
             admin_sessions.pop(session_id, None)
 
+    def cleanup_expired_tokens(self):
+        """Очистка просроченных токенов"""
+        now = datetime.utcnow()
+        expired_tokens = [
+            token for token, data in admin_bot_tokens.items()
+            if data['expires_at'] < now
+        ]
+
+        for token in expired_tokens:
+            admin_bot_tokens.pop(token, None)
+
     def extend_session(self, session_id: str):
         """Продление сессии"""
         if session_id in admin_sessions:
             admin_sessions[session_id]['expires_at'] = datetime.utcnow() + self.session_duration
 
+    def is_admin_user(self, telegram_id: int) -> bool:
+        """Проверка, является ли пользователь администратором"""
+        admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "123456789")
+        admin_ids = [int(id_str.strip()) for id_str in admin_ids_str.split(",") if id_str.strip()]
+        return telegram_id in admin_ids
+
 
 # Глобальный экземпляр менеджера
 admin_auth = AdminAuthManager()
-
-
-def validate_admin_token(token: str) -> bool:
-    """Проверка токена из бота (для первичного входа)"""
-    from .telegram_bot import validate_admin_token as bot_validate_token
-    return bot_validate_token(token)
 
 
 def get_session_from_request(request: Request) -> Optional[str]:
@@ -150,14 +187,6 @@ class AdminActivityMiddleware:
         await self.app(scope, receive, send)
 
 
-# Функции для интеграции с основной системой
-def check_admin_access_by_telegram(telegram_id: int) -> bool:
-    """Проверка админ прав по Telegram ID (для совместимости)"""
-    admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "123456789")
-    admin_ids = [int(id_str.strip()) for id_str in admin_ids_str.split(",") if id_str.strip()]
-    return telegram_id in admin_ids
-
-
 def get_admin_stats() -> dict:
     """Получение статистики админ сессий"""
     active_sessions = len([
@@ -168,5 +197,6 @@ def get_admin_stats() -> dict:
     return {
         "active_sessions": active_sessions,
         "total_sessions": len(admin_sessions),
+        "active_tokens": len(admin_bot_tokens),
         "last_cleanup": datetime.utcnow().isoformat()
     }
