@@ -1,13 +1,19 @@
-# ===== telegram_bot.py (новый файл в корне проекта) =====
+# app/telegram_bot.py - Исправленная версия БЕЗ циклических импортов
 import asyncio
 import httpx
 import os
+import secrets
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBAPP_URL = os.getenv("WEBAPP_URL")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+
+# Локальное хранилище токенов для админа (чтобы избежать циклических импортов)
+_admin_bot_tokens = {}
 
 
 class TelegramBot:
@@ -22,7 +28,8 @@ class TelegramBot:
             data = {
                 "chat_id": chat_id,
                 "text": text,
-                "parse_mode": "HTML"
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True
             }
             if reply_markup:
                 data["reply_markup"] = reply_markup
@@ -41,14 +48,6 @@ class TelegramBot:
 
         return await self.send_message(chat_id, text, keyboard)
 
-    async def set_webhook(self, webhook_url: str):
-        """Установка webhook"""
-        async with httpx.AsyncClient() as client:
-            url = f"{self.base_url}/setWebhook"
-            data = {"url": webhook_url}
-            response = await client.post(url, json=data)
-            return response.json()
-
     async def get_updates(self, offset=None):
         """Получение обновлений (для polling)"""
         async with httpx.AsyncClient() as client:
@@ -61,8 +60,47 @@ class TelegramBot:
             return response.json()
 
 
-# Обработчик команд
+def is_admin_user(telegram_id: int) -> bool:
+    """Проверка, является ли пользователь администратором"""
+    admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "944196754")
+    try:
+        admin_ids = [int(id_str.strip()) for id_str in admin_ids_str.split(",") if id_str.strip()]
+        return telegram_id in admin_ids
+    except ValueError:
+        print(f"⚠️ Invalid ADMIN_TELEGRAM_IDS format: {admin_ids_str}")
+        return False
+
+
+def generate_admin_token() -> str:
+    """Генерация токена для админ панели"""
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=2)
+
+    _admin_bot_tokens[token] = {
+        'created_at': datetime.utcnow(),
+        'expires_at': expires_at
+    }
+
+    # Очистка старых токенов
+    cleanup_expired_tokens()
+    return token
+
+
+def cleanup_expired_tokens():
+    """Очистка просроченных токенов"""
+    now = datetime.utcnow()
+    expired_tokens = [
+        token for token, data in _admin_bot_tokens.items()
+        if data['expires_at'] < now
+    ]
+
+    for token in expired_tokens:
+        _admin_bot_tokens.pop(token, None)
+
+
+# Обработчики команд
 async def handle_start_command(chat_id: int, first_name: str = ""):
+    """Обработка команды /start"""
     bot = TelegramBot(BOT_TOKEN)
 
     welcome_text = f"""
@@ -79,27 +117,99 @@ async def handle_start_command(chat_id: int, first_name: str = ""):
 Нажмите кнопку ниже, чтобы начать!
     """
 
-    await bot.send_webapp_button(chat_id, welcome_text, WEBAPP_URL)
+    await bot.send_webapp_button(chat_id, welcome_text.strip(), WEBAPP_URL)
 
 
-async def handle_volunteer_profile_command(chat_id: int):
-    """Обработка команды /volunteer_profile"""
+async def handle_admin_command(chat_id: int, user_id: int):
+    """Обработка команды /admin"""
     bot = TelegramBot(BOT_TOKEN)
-    await bot.send_webapp_button(chat_id, "👥 Профиль волонтёра", f"{WEBAPP_URL}/volunteer/profile")
+
+    # Проверяем, является ли пользователь администратором
+    if not is_admin_user(user_id):
+        await bot.send_message(chat_id, "❌ У вас нет прав администратора.")
+        return
+
+    # Генерируем токен
+    admin_token = generate_admin_token()
+
+    # Создаем ссылку на админ панель
+    admin_url = f"{WEBAPP_URL.rstrip('/')}/admin/login?token={admin_token}"
+
+    admin_text = f"""
+🔐 <b>Доступ к админ панели</b>
+
+Ваша ссылка для входа в админ панель:
+<a href="{admin_url}">🚀 Войти в админ панель</a>
+
+⚠️ <b>Важно:</b>
+• Ссылка действительна 2 часа
+• Не передавайте ссылку третьим лицам
+• После входа используйте логин и пароль
+
+<b>Логин:</b> <code>admin</code>
+<b>Пароль:</b> <code>{ADMIN_PASSWORD}</code>
+
+<i>Если кнопка не работает, скопируйте ссылку:</i>
+<code>{admin_url}</code>
+    """
+
+    await bot.send_message(chat_id, admin_text.strip())
 
 
-async def handle_organizer_profile_command(chat_id: int):
-    """Обработка команды /organizer_profile"""
+async def handle_help_command(chat_id: int):
+    """Обработка команды /help"""
     bot = TelegramBot(BOT_TOKEN)
-    await bot.send_webapp_button(chat_id, "🏢 Профиль организатора", f"{WEBAPP_URL}/organizer/profile")
+
+    help_text = """
+🆘 <b>Помощь</b>
+
+<b>Доступные команды:</b>
+/start - Запустить приложение
+/help - Показать эту справку
+/volunteer - Открыть профиль волонтёра
+/organizer - Открыть профиль организатора
+
+<b>Для администраторов:</b>
+/admin - Получить доступ к админ панели
+
+Для работы с системой используйте кнопку "Открыть приложение"
+    """
+
+    await bot.send_message(chat_id, help_text.strip())
 
 
-# Простой polling бот
+async def handle_volunteer_command(chat_id: int):
+    """Обработка команды /volunteer"""
+    bot = TelegramBot(BOT_TOKEN)
+    await bot.send_webapp_button(
+        chat_id,
+        "👥 Профиль волонтёра",
+        f"{WEBAPP_URL.rstrip('/')}/volunteer/profile"
+    )
+
+
+async def handle_organizer_command(chat_id: int):
+    """Обработка команды /organizer"""
+    bot = TelegramBot(BOT_TOKEN)
+    await bot.send_webapp_button(
+        chat_id,
+        "🏢 Профиль организатора",
+        f"{WEBAPP_URL.rstrip('/')}/organizer/profile"
+    )
+
+
+# Основной цикл бота
 async def start_polling():
+    """Запуск бота в режиме polling"""
     bot = TelegramBot(BOT_TOKEN)
     offset = None
 
     print(f"🤖 Бот запущен! WebApp URL: {WEBAPP_URL}")
+    print(f"🔐 Админ пароль: {ADMIN_PASSWORD}")
+
+    # Получаем список админов
+    admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "123456789")
+    print(f"👨‍💼 Админы: {admin_ids_str}")
 
     while True:
         try:
@@ -109,124 +219,38 @@ async def start_polling():
                 for update in updates["result"]:
                     offset = update["update_id"] + 1
 
-                    # Обработка команд
+                    # Обработка сообщений
                     if "message" in update and "text" in update["message"]:
                         message = update["message"]
                         chat_id = message["chat"]["id"]
+                        user_id = message["from"]["id"]
                         text = message["text"]
                         first_name = message["from"].get("first_name", "")
 
+                        print(f"📨 Получено сообщение от {user_id} ({first_name}): {text}")
+
+                        # Обработка команд
                         if text.startswith("/start"):
                             await handle_start_command(chat_id, first_name)
+                        elif text == "/admin":
+                            await handle_admin_command(chat_id, user_id)
                         elif text == "/help":
-                            help_text = """
-🆘 <b>Помощь</b>
-
-Доступные команды:
-/start - Запустить приложение
-/help - Показать эту справку
-/volunteer_profile - Открыть профиль волонтёра
-/organizer_profile - Открыть профиль организатора
-
-Для работы с системой используйте кнопку "Открыть приложение"
-                            """
-                            await bot.send_message(chat_id, help_text)
-                        elif text == "/volunteer_profile":
-                            await handle_volunteer_profile_command(chat_id)
-                        elif text == "/organizer_profile":
-                            await handle_organizer_profile_command(chat_id)
+                            await handle_help_command(chat_id)
+                        elif text == "/volunteer":
+                            await handle_volunteer_command(chat_id)
+                        elif text == "/organizer":
+                            await handle_organizer_command(chat_id)
+                        else:
+                            # Неизвестная команда
+                            await bot.send_message(
+                                chat_id,
+                                "❓ Неизвестная команда. Используйте /help для справки."
+                            )
 
         except Exception as e:
-            print(f"Ошибка в боте: {e}")
+            print(f"❌ Ошибка в боте: {e}")
             await asyncio.sleep(5)
 
 
 if __name__ == "__main__":
     asyncio.run(start_polling())
-
-# ===== app/auth.py (обновленный) =====
-import hashlib
-import hmac
-import json
-from urllib.parse import parse_qsl, unquote
-from fastapi import HTTPException, Header
-from typing import Optional
-import os
-
-
-def verify_telegram_auth(init_data: str) -> dict:
-    """Проверка подлинности данных Telegram WebApp"""
-    try:
-        # Парсинг init_data
-        parsed_data = dict(parse_qsl(init_data))
-
-        # Извлечение hash
-        hash_value = parsed_data.pop('hash', None)
-        if not hash_value:
-            raise ValueError("Hash not found")
-
-        # Создание строки для проверки
-        data_check_string = '\n'.join([f"{k}={v}" for k, v in sorted(parsed_data.items())])
-
-        # Создание secret key
-        bot_token = os.getenv("BOT_TOKEN")
-        if not bot_token:
-            raise ValueError("BOT_TOKEN not set")
-
-        secret_key = hmac.new(
-            "WebAppData".encode(),
-            bot_token.encode(),
-            hashlib.sha256
-        ).digest()
-
-        # Проверка подписи
-        calculated_hash = hmac.new(
-            secret_key,
-            data_check_string.encode(),
-            hashlib.sha256
-        ).hexdigest()
-
-        # В разработке можем упростить проверку
-        if os.getenv("ENVIRONMENT") == "development":
-            print("⚠️ Режим разработки: пропуск проверки подписи")
-        elif calculated_hash != hash_value:
-            raise ValueError("Invalid signature")
-
-        # Извлечение данных пользователя
-        user_data = parsed_data.get('user')
-        if not user_data:
-            raise ValueError("User data not found")
-
-        user_info = json.loads(unquote(user_data))
-
-        return {
-            'id': user_info.get('id'),
-            'first_name': user_info.get('first_name', ''),
-            'last_name': user_info.get('last_name', ''),
-            'username': user_info.get('username', ''),
-            'language_code': user_info.get('language_code', 'ru'),
-            'is_premium': user_info.get('is_premium', False)
-        }
-
-    except Exception as e:
-        print(f"Auth error: {e}")
-        # В разработке возвращаем тестовые данные
-        if os.getenv("ENVIRONMENT") == "development":
-            return {
-                'id': 123456789,
-                'first_name': 'Test',
-                'last_name': 'User',
-                'username': 'testuser',
-                'language_code': 'ru',
-                'is_premium': False
-            }
-        raise HTTPException(status_code=401, detail="Invalid auth data")
-
-
-def get_telegram_user(authorization: Optional[str] = Header(None)):
-    """Получение данных пользователя из заголовка"""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization header required")
-
-    return verify_telegram_auth(authorization)
-

@@ -1,7 +1,9 @@
-# app/telegram_bot.py - Исправленная версия
+# app/telegram_bot.py - Исправленная версия БЕЗ циклических импортов
 import asyncio
 import httpx
 import os
+import secrets
+from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,6 +11,9 @@ load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBAPP_URL = os.getenv("WEBAPP_URL")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+
+# Локальное хранилище токенов для админа (чтобы избежать циклических импортов)
+_admin_bot_tokens = {}
 
 
 class TelegramBot:
@@ -43,14 +48,6 @@ class TelegramBot:
 
         return await self.send_message(chat_id, text, keyboard)
 
-    async def set_webhook(self, webhook_url: str):
-        """Установка webhook"""
-        async with httpx.AsyncClient() as client:
-            url = f"{self.base_url}/setWebhook"
-            data = {"url": webhook_url}
-            response = await client.post(url, json=data)
-            return response.json()
-
     async def get_updates(self, offset=None):
         """Получение обновлений (для polling)"""
         async with httpx.AsyncClient() as client:
@@ -66,8 +63,39 @@ class TelegramBot:
 def is_admin_user(telegram_id: int) -> bool:
     """Проверка, является ли пользователь администратором"""
     admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "123456789")
-    admin_ids = [int(id_str.strip()) for id_str in admin_ids_str.split(",") if id_str.strip()]
-    return telegram_id in admin_ids
+    try:
+        admin_ids = [int(id_str.strip()) for id_str in admin_ids_str.split(",") if id_str.strip()]
+        return telegram_id in admin_ids
+    except ValueError:
+        print(f"⚠️ Invalid ADMIN_TELEGRAM_IDS format: {admin_ids_str}")
+        return False
+
+
+def generate_admin_token() -> str:
+    """Генерация токена для админ панели"""
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.utcnow() + timedelta(hours=2)
+
+    _admin_bot_tokens[token] = {
+        'created_at': datetime.utcnow(),
+        'expires_at': expires_at
+    }
+
+    # Очистка старых токенов
+    cleanup_expired_tokens()
+    return token
+
+
+def cleanup_expired_tokens():
+    """Очистка просроченных токенов"""
+    now = datetime.utcnow()
+    expired_tokens = [
+        token for token, data in _admin_bot_tokens.items()
+        if data['expires_at'] < now
+    ]
+
+    for token in expired_tokens:
+        _admin_bot_tokens.pop(token, None)
 
 
 # Обработчики команд
@@ -101,18 +129,11 @@ async def handle_admin_command(chat_id: int, user_id: int):
         await bot.send_message(chat_id, "❌ У вас нет прав администратора.")
         return
 
-    # Импортируем admin_auth только здесь, чтобы избежать циклических импортов
-    try:
-        from .admin_auth import admin_auth
-        # Генерируем токен
-        admin_token = admin_auth.generate_bot_token()
-    except ImportError:
-        print("❌ Failed to import admin_auth")
-        await bot.send_message(chat_id, "❌ Ошибка системы администрирования.")
-        return
+    # Генерируем токен
+    admin_token = generate_admin_token()
 
     # Создаем ссылку на админ панель
-    admin_url = f"{WEBAPP_URL}/admin/login?token={admin_token}"
+    admin_url = f"{WEBAPP_URL.rstrip('/')}/admin/login?token={admin_token}"
 
     admin_text = f"""
 🔐 <b>Доступ к админ панели</b>
@@ -163,7 +184,7 @@ async def handle_volunteer_command(chat_id: int):
     await bot.send_webapp_button(
         chat_id,
         "👥 Профиль волонтёра",
-        f"{WEBAPP_URL}/volunteer/profile"
+        f"{WEBAPP_URL.rstrip('/')}/volunteer/profile"
     )
 
 
@@ -173,7 +194,7 @@ async def handle_organizer_command(chat_id: int):
     await bot.send_webapp_button(
         chat_id,
         "🏢 Профиль организатора",
-        f"{WEBAPP_URL}/organizer/profile"
+        f"{WEBAPP_URL.rstrip('/')}/organizer/profile"
     )
 
 
@@ -185,6 +206,10 @@ async def start_polling():
 
     print(f"🤖 Бот запущен! WebApp URL: {WEBAPP_URL}")
     print(f"🔐 Админ пароль: {ADMIN_PASSWORD}")
+
+    # Получаем список админов
+    admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "123456789")
+    print(f"👨‍💼 Админы: {admin_ids_str}")
 
     while True:
         try:
@@ -202,7 +227,7 @@ async def start_polling():
                         text = message["text"]
                         first_name = message["from"].get("first_name", "")
 
-                        print(f"📨 Получено сообщение от {user_id}: {text}")
+                        print(f"📨 Получено сообщение от {user_id} ({first_name}): {text}")
 
                         # Обработка команд
                         if text.startswith("/start"):

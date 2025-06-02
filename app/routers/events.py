@@ -59,6 +59,7 @@ def list_events(
     return events
 
 
+
 @router.post("/", response_model=schemas.EventResponse)
 def create_event(
         event: schemas.EventCreate,
@@ -78,7 +79,6 @@ def create_event(
         raise HTTPException(status_code=403, detail="Only organizers can create events")
 
     return crud.create_event(db, event, db_user.id)
-
 
 @router.get("/{event_id}", response_model=schemas.EventResponse)
 def get_event(event_id: int, db: Session = Depends(get_db)):
@@ -138,6 +138,8 @@ def update_event(
         telegram_user: dict = Depends(get_telegram_user_flexible)
 ):
     """Обновление мероприятия"""
+    from datetime import datetime  # Добавляем импорт
+
     print(f"✏️ Updating event {event_id} by user {telegram_user['id']}")
 
     # Проверяем, что пользователь - организатор этого мероприятия
