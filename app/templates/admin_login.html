@@ -133,7 +133,7 @@
 
         <!-- Информация о токене -->
         <div id="tokenInfo" class="token-info" style="display: none;">
-            <strong>ℹ️ Токен из бота получен</strong><br>
+            <strong>ℹ️ Токен получен из бота</strong><br>
             <small>Введите логин и пароль для входа</small>
         </div>
 
@@ -142,10 +142,17 @@
             <strong>❌ Ошибка:</strong> <span id="errorMessage"></span>
         </div>
 
+        <!-- Предустановленная ошибка из шаблона -->
+        {% if error %}
+        <div class="alert alert-danger" role="alert">
+            <strong>❌ Ошибка:</strong> {{ error }}
+        </div>
+        {% endif %}
+
         <!-- Форма входа -->
         <form id="loginForm">
             <div class="form-floating mb-3">
-                <input type="text" class="form-control" id="login" placeholder="Логин" required>
+                <input type="text" class="form-control" id="login" placeholder="Логин" required value="admin">
                 <label for="login">👤 Логин</label>
                 <div id="loginError" class="invalid-feedback"></div>
             </div>
@@ -169,18 +176,17 @@
     </div>
 
     <script>
-        let botToken = null;
+        let botToken = "{{ token }}";
 
         // Инициализация
         document.addEventListener('DOMContentLoaded', function() {
-            // Получаем токен из URL
-            const urlParams = new URLSearchParams(window.location.search);
-            botToken = urlParams.get('token');
+            console.log('🔐 Admin login page loaded');
 
-            if (botToken) {
+            if (botToken && botToken !== "None") {
                 document.getElementById('tokenInfo').style.display = 'block';
-                console.log('🔐 Bot token received');
+                console.log('✅ Bot token available');
             } else {
+                console.log('❌ No bot token');
                 showError('Токен доступа не найден. Получите ссылку через команду /admin в боте.');
                 document.getElementById('loginBtn').disabled = true;
             }
@@ -188,8 +194,8 @@
             // Обработка формы
             document.getElementById('loginForm').addEventListener('submit', handleLogin);
 
-            // Автофокус на поле логина
-            document.getElementById('login').focus();
+            // Автофокус на поле пароля (логин уже заполнен)
+            document.getElementById('password').focus();
         });
 
         async function handleLogin(e) {
@@ -226,7 +232,7 @@
                 hasErrors = true;
             }
 
-            if (!botToken) {
+            if (!botToken || botToken === "None") {
                 showError('Токен доступа не найден');
                 hasErrors = true;
             }
@@ -256,11 +262,15 @@
                     const result = await response.json();
                     console.log('✅ Login successful');
 
-                    // Сохраняем сессию в cookie
-                    document.cookie = `admin_session=${result.session_id}; path=/; max-age=28800; secure; samesite=strict`;
+                    // Показываем успех
+                    loginBtnText.textContent = '✅ Вход выполнен';
+                    loginBtnText.style.display = 'inline';
+                    loginBtnSpinner.style.display = 'none';
 
                     // Перенаправляем в админ панель
-                    window.location.href = '/admin/dashboard';
+                    setTimeout(() => {
+                        window.location.href = '/admin/dashboard';
+                    }, 1000);
 
                 } else {
                     const errorData = await response.json();
@@ -280,6 +290,7 @@
             const loginBtnSpinner = document.getElementById('loginBtnSpinner');
 
             loginBtn.disabled = false;
+            loginBtnText.textContent = '🚀 Войти в панель';
             loginBtnText.style.display = 'inline';
             loginBtnSpinner.style.display = 'none';
         }

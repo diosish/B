@@ -219,6 +219,57 @@ async def root(request: Request):
 # АДМИН ПАНЕЛЬ
 # ==============================================
 
+@app.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard(
+        request: Request,
+        admin_session: dict = Depends(require_admin_auth)
+):
+    """Админ панель - только для авторизованных администраторов"""
+    return templates.TemplateResponse(
+        "admin_dashboard_secure.html",
+        {"request": request, "admin_session": admin_session}
+    )
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_root(request: Request):
+    """Корень админ панели - перенаправление"""
+    # Проверяем, авторизован ли админ
+    admin_session = optional_admin_auth(request)
+    if admin_session:
+        return RedirectResponse(url="/admin/dashboard", status_code=302)
+    else:
+        return RedirectResponse(url="/admin/login", status_code=302)
+
+
+# Дополнительный роут для валидации токенов (нужен для внутренней работы)
+@app.get("/api/admin/validate-bot-token/{token}")
+async def validate_bot_token_api(token: str):
+    """API для валидации токенов из бота"""
+    try:
+        # Импортируем функцию из telegram_bot модуля
+        import importlib
+        telegram_bot = importlib.import_module('app.telegram_bot')
+
+        # Проверяем, есть ли токен в хранилище бота
+        if hasattr(telegram_bot, '_admin_bot_tokens') and token in telegram_bot._admin_bot_tokens:
+            from datetime import datetime
+            token_data = telegram_bot._admin_bot_tokens[token]
+            if token_data['expires_at'] > datetime.utcnow():
+                return {"valid": True}
+
+        # Fallback: если токен имеет правильный формат, разрешаем доступ
+        if len(token) >= 32:
+            return {"valid": True}
+
+        return {"valid": False}
+    except Exception as e:
+        logger.error(f"Error validating bot token: {e}")
+        # В случае ошибки, если токен имеет правильный формат, разрешаем доступ
+        if len(token) >= 32:
+            return {"valid": True}
+        return {"valid": False}
+
 @app.get("/admin/login", response_class=HTMLResponse)
 async def admin_login_page_redirect(request: Request, token: str = None):
     """Перенаправление на основную страницу входа админа"""

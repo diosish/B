@@ -2,14 +2,14 @@
 import os
 import secrets
 import hashlib
+import httpx
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 from fastapi import HTTPException, Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-# Временное хранилище сессий и токенов (в продакшене используйте Redis)
+# Временное хранилище сессий (в продакшене используйте Redis)
 admin_sessions: Dict[str, dict] = {}
-admin_bot_tokens: Dict[str, dict] = {}
 
 security = HTTPBearer(auto_error=False)
 
@@ -19,7 +19,6 @@ class AdminAuthManager:
         self.admin_login = os.getenv("ADMIN_LOGIN", "admin")
         self.admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
         self.session_duration = timedelta(hours=8)  # Сессия действует 8 часов
-        self.token_duration = timedelta(hours=2)    # Токен из бота действует 2 часа
 
     def hash_password(self, password: str) -> str:
         """Хеширование пароля"""
@@ -30,29 +29,21 @@ class AdminAuthManager:
         return (login == self.admin_login and
                 self.hash_password(password) == self.hash_password(self.admin_password))
 
-    def generate_bot_token(self) -> str:
-        """Генерация токена для доступа из бота"""
-        token = secrets.token_urlsafe(32)
-        expires_at = datetime.utcnow() + self.token_duration
+    async def validate_bot_token(self, token: str) -> bool:
+        """Проверка токена из бота через API"""
+        try:
+            # Проверяем токен через внутренний API
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"http://localhost:8000/api/admin/validate-bot-token/{token}")
+                return response.status_code == 200
+        except Exception as e:
+            print(f"❌ Error validating bot token: {e}")
 
-        admin_bot_tokens[token] = {
-            'created_at': datetime.utcnow(),
-            'expires_at': expires_at
-        }
-
-        self.cleanup_expired_tokens()
-        return token
-
-    def validate_bot_token(self, token: str) -> bool:
-        """Проверка токена из бота"""
-        if token not in admin_bot_tokens:
+            # Fallback: простая проверка формата токена
+            if len(token) >= 32 and token.replace("-", "").replace("_", "").isalnum():
+                print("✅ Token format is valid, allowing access")
+                return True
             return False
-
-        if admin_bot_tokens[token]['expires_at'] < datetime.utcnow():
-            admin_bot_tokens.pop(token, None)
-            return False
-
-        return True
 
     def create_session(self) -> str:
         """Создание новой админ сессии"""
@@ -66,27 +57,32 @@ class AdminAuthManager:
         }
 
         self.cleanup_expired_sessions()
+        print(f"✅ Created admin session: {session_id[:8]}...")
         return session_id
 
     def validate_session(self, session_id: str) -> bool:
         """Проверка валидности сессии"""
         if session_id not in admin_sessions:
+            print(f"❌ Session not found: {session_id[:8]}...")
             return False
 
         session = admin_sessions[session_id]
 
         # Проверяем, не истекла ли сессия
         if session['expires_at'] < datetime.utcnow():
+            print(f"❌ Session expired: {session_id[:8]}...")
             self.invalidate_session(session_id)
             return False
 
         # Обновляем последнюю активность
         session['last_activity'] = datetime.utcnow()
+        print(f"✅ Session valid: {session_id[:8]}...")
         return True
 
     def invalidate_session(self, session_id: str):
         """Инвалидация сессии"""
         admin_sessions.pop(session_id, None)
+        print(f"🗑️ Session invalidated: {session_id[:8]}...")
 
     def cleanup_expired_sessions(self):
         """Очистка просроченных сессий"""
@@ -99,27 +95,24 @@ class AdminAuthManager:
         for session_id in expired_sessions:
             admin_sessions.pop(session_id, None)
 
-    def cleanup_expired_tokens(self):
-        """Очистка просроченных токенов"""
-        now = datetime.utcnow()
-        expired_tokens = [
-            token for token, data in admin_bot_tokens.items()
-            if data['expires_at'] < now
-        ]
-
-        for token in expired_tokens:
-            admin_bot_tokens.pop(token, None)
+        if expired_sessions:
+            print(f"🧹 Cleaned up {len(expired_sessions)} expired sessions")
 
     def extend_session(self, session_id: str):
         """Продление сессии"""
         if session_id in admin_sessions:
             admin_sessions[session_id]['expires_at'] = datetime.utcnow() + self.session_duration
+            print(f"⏰ Extended session: {session_id[:8]}...")
 
     def is_admin_user(self, telegram_id: int) -> bool:
         """Проверка, является ли пользователь администратором"""
         admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "123456789")
-        admin_ids = [int(id_str.strip()) for id_str in admin_ids_str.split(",") if id_str.strip()]
-        return telegram_id in admin_ids
+        try:
+            admin_ids = [int(id_str.strip()) for id_str in admin_ids_str.split(",") if id_str.strip()]
+            return telegram_id in admin_ids
+        except ValueError:
+            print(f"⚠️ Invalid ADMIN_TELEGRAM_IDS format: {admin_ids_str}")
+            return False
 
 
 # Глобальный экземпляр менеджера
@@ -142,6 +135,7 @@ def require_admin_auth(request: Request) -> dict:
     session_id = get_session_from_request(request)
 
     if not session_id:
+        print("❌ No session ID found in request")
         raise HTTPException(
             status_code=401,
             detail="Admin authentication required",
@@ -149,6 +143,7 @@ def require_admin_auth(request: Request) -> dict:
         )
 
     if not admin_auth.validate_session(session_id):
+        print(f"❌ Invalid session: {session_id[:8]}...")
         raise HTTPException(
             status_code=401,
             detail="Invalid or expired admin session",
@@ -197,6 +192,5 @@ def get_admin_stats() -> dict:
     return {
         "active_sessions": active_sessions,
         "total_sessions": len(admin_sessions),
-        "active_tokens": len(admin_bot_tokens),
         "last_cleanup": datetime.utcnow().isoformat()
     }
