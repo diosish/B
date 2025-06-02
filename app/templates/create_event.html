@@ -338,18 +338,18 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '⏳ Создаём мероприятие...';
 
-            // Собираем данные формы
+            // Собираем данные формы правильно
             const eventData = {
                 title: document.getElementById('eventTitle').value.trim(),
-                description: buildDescription(),
-                contact: buildContact(),
-                treb: buildTreb(),
+                description: document.getElementById('eventDescription').value.trim() || null,
+                treb: document.getElementById('eventRequirements').value.trim() || null,  // Исправлено
+                contact: document.getElementById('eventContact').value.trim() || null,  // Исправлено
                 city: document.getElementById('eventCity').value.trim(),
                 payment: parseFloat(document.getElementById('eventPayment').value) || 0,
                 date: document.getElementById('eventDate').value || null,
                 duration: parseInt(document.getElementById('eventDuration').value) || null,
                 work_type: document.getElementById('workType').value
-                organizer_id: currentUser.id
+                // Убрано поле organizer_id, так как оно определяется на сервере
             };
 
             console.log('📊 Event data:', eventData);
@@ -415,18 +415,7 @@
             }
         }
 
-        function buildDescription() {
-            let description = document.getElementById('eventDescription').value.trim();
-            return description;
-        }
-         function buildContact() {
-            let contact = document.getElementById('eventContact').value.trim();
-            return contact;
-        }
-         function buildTreb() {
-            let requirements = document.getElementById('eventRequirements').value.trim();
-            return requirements;
-        }
+
 
         document.addEventListener('DOMContentLoaded', init);
     </script>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аккаунт деактивирован</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="/static/css/unified-styles.css" rel="stylesheet">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: var(--spacing-lg);
+        }
+
+        .deactivated-container {
+            background: white;
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xxl);
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .deactivated-icon {
+            font-size: 96px;
+            margin-bottom: var(--spacing-lg);
+            opacity: 0.8;
+        }
+
+        .deactivated-title {
+            font-size: var(--font-size-xxl);
+            font-weight: 700;
+            color: var(--color-danger);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .deactivated-subtitle {
+            font-size: var(--font-size-lg);
+            font-weight: 600;
+            margin-bottom: var(--spacing-lg);
+            color: var(--color-dark);
+        }
+
+        .deactivated-description {
+            color: var(--tg-theme-hint-color);
+            margin-bottom: var(--spacing-xl);
+            line-height: 1.6;
+        }
+
+        .contact-info {
+            background: var(--color-light);
+            border: 1px solid var(--tg-theme-hint-color);
+            border-radius: var(--radius-md);
+            padding: var(--spacing-lg);
+            margin: var(--spacing-lg) 0;
+        }
+
+        .contact-title {
+            font-weight: 600;
+            margin-bottom: var(--spacing-sm);
+            color: var(--color-dark);
+        }
+
+        .contact-method {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            margin-bottom: var(--spacing-sm);
+            padding: var(--spacing-sm);
+            background: white;
+            border-radius: var(--radius-sm);
+        }
+
+        .contact-icon {
+            font-size: var(--font-size-lg);
+        }
+
+        .contact-text {
+            flex: 1;
+            text-align: left;
+        }
+
+        .contact-link {
+            color: var(--tg-theme-button-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .contact-link:hover {
+            text-decoration: underline;
+        }
+
+        .help-section {
+            background: #e7f3ff;
+            border: 1px solid #b3d7ff;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+
+        .help-title {
+            font-weight: 600;
+            margin-bottom: var(--spacing-sm);
+            color: #0c5460;
+        }
+
+        .help-list {
+            text-align: left;
+            margin: 0;
+            padding-left: var(--spacing-lg);
+            color: #0c5460;
+            font-size: var(--font-size-sm);
+        }
+
+        .help-list li {
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .back-button {
+            margin-top: var(--spacing-xl);
+        }
+
+        .btn-back {
+            background: var(--color-dark);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            padding: var(--spacing-md) var(--spacing-xl);
+            font-size: var(--font-size-base);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .btn-back:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 480px) {
+            .deactivated-container {
+                padding: var(--spacing-lg);
+                margin: var(--spacing-sm);
+            }
+
+            .deactivated-icon {
+                font-size: 64px;
+            }
+
+            .deactivated-title {
+                font-size: var(--font-size-xl);
+            }
+
+            .contact-method {
+                flex-direction: column;
+                text-align: center;
+                gap: var(--spacing-xs);
+            }
+
+            .contact-text {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="deactivated-container">
+        <div class="deactivated-icon">🚫</div>
+        <h1 class="deactivated-title">Аккаунт деактивирован</h1>
+        <h2 class="deactivated-subtitle">Доступ к системе ограничен</h2>
+        
+        <p class="deactivated-description">
+            Ваш аккаунт был временно деактивирован администратором системы. 
+            Это могло произойти по причинам безопасности, нарушения правил использования 
+            или в рамках технического обслуживания.
+        </p>
+
+        <div class="contact-info">
+            <div class="contact-title">📞 Для восстановления доступа обратитесь:</div>
+            
+            <div class="contact-method">
+                <span class="contact-icon">📧</span>
+                <div class="contact-text">
+                    <strong>Email поддержки:</strong><br>
+                    <a href="mailto:support@volunteer-system.ru" class="contact-link">
+                        support@volunteer-system.ru
+                    </a>
+                </div>
+            </div>
+
+            <div class="contact-method">
+                <span class="contact-icon">💬</span>
+                <div class="contact-text">
+                    <strong>Telegram поддержка:</strong><br>
+                    <a href="https://t.me/volunteer_support_bot" class="contact-link">
+                        @volunteer_support_bot
+                    </a>
+                </div>
+            </div>
+
+            <div class="contact-method">
+                <span class="contact-icon">📱</span>
+                <div class="contact-text">
+                    <strong>Телефон поддержки:</strong><br>
+                    <a href="tel:+78001234567" class="contact-link">
+                        +7 (800) 123-45-67
+                    </a>
+                </div>
+            </div>
+
+            <div class="contact-method">
+                <span class="contact-icon">🕐</span>
+                <div class="contact-text">
+                    <strong>Часы работы:</strong><br>
+                    Пн-Пт: 9:00-18:00 (МСК)
+                </div>
+            </div>
+        </div>
+
+        <div class="help-section">
+            <div class="help-title">💡 Что указать при обращении:</div>
+            <ul class="help-list">
+                <li>Ваш Telegram ID: <strong id="userId">Загрузка...</strong></li>
+                <li>Полное имя из профиля</li>
+                <li>Причину обращения (восстановление доступа)</li>
+                <li>Дату последнего использования системы</li>
+                <li>Описание ваших действий перед блокировкой</li>
+            </ul>
+        </div>
+
+        <div class="back-button">
+            <button class="btn-back" onclick="goBack()">
+                🏠 Закрыть приложение
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let tg = window.Telegram?.WebApp;
+        let currentUser = null;
+
+        function init() {
+            console.log('🚫 User deactivated page loaded');
+
+            if (tg) {
+                tg.ready();
+                tg.expand();
+                currentUser = tg.initDataUnsafe?.user;
+
+                // Настраиваем главную кнопку
+                tg.MainButton.setText('📞 Связаться с поддержкой');
+                tg.MainButton.show();
+                tg.MainButton.onClick(contactSupport);
+
+                // Отображаем ID пользователя
+                if (currentUser) {
+                    document.getElementById('userId').textContent = currentUser.id;
+                }
+
+                // Применяем тему Telegram
+                applyTelegramTheme();
+            } else {
+                document.getElementById('userId').textContent = 'Неизвестен';
+            }
+        }
+
+        function applyTelegramTheme() {
+            if (!tg?.themeParams) return;
+
+            const theme = tg.themeParams;
+            const root = document.documentElement;
+
+            // Применяем только некоторые цвета, сохраняя дизайн страницы
+            if (theme.button_color) {
+                root.style.setProperty('--tg-theme-button-color', theme.button_color);
+            }
+            if (theme.text_color) {
+                root.style.setProperty('--tg-theme-text-color', theme.text_color);
+            }
+        }
+
+        function contactSupport() {
+            const supportUrl = 'https://t.me/volunteer_support_bot';
+            
+            if (tg && tg.openTelegramLink) {
+                tg.openTelegramLink(supportUrl);
+            } else if (tg && tg.openLink) {
+                tg.openLink(supportUrl);
+            } else {
+                window.open(supportUrl, '_blank');
+            }
+        }
+
+        function goBack() {
+            if (tg && tg.close) {
+                tg.close();
+            } else {
+                // Fallback для веб-версии
+                window.history.back();
+            }
+        }
+
+        // Автоматическое копирование ID в буфер при клике
+        document.getElementById('userId').addEventListener('click', function() {
+            const userId = this.textContent;
+            if (userId && userId !== 'Загрузка...' && userId !== 'Неизвестен') {
+                if (navigator.clipboard) {
+                    navigator.clipboard.writeText(userId).then(() => {
+                        if (tg && tg.showAlert) {
+                            tg.showAlert('✅ ID скопирован в буфер обмена');
+                        } else {
+                            alert('✅ ID скопирован в буфер обмена');
+                        }
+                    }).catch(() => {
+                        // Fallback для старых браузеров
+                        fallbackCopyTextToClipboard(userId);
+                    });
+                } else {
+                    fallbackCopyTextToClipboard(userId);
+                }
+            }
+        });
+
+        function fallbackCopyTextToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                if (tg && tg.showAlert) {
+                    tg.showAlert('✅ ID скопирован в буфер обмена');
+                } else {
+                    alert('✅ ID скопирован в буфер обмена');
+                }
+            } catch (err) {
+                console.error('Fallback: Copying text command was unsuccessful', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

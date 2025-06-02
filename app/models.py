@@ -92,6 +92,8 @@ class Event(Base):
     id = Column(Integer, primary_key=True)
     title = Column(String(255), nullable=False)
     description = Column(Text)
+    treb = Column(Text)  # Добавлено поле для требований
+    contact = Column(Text)  # Добавлено поле для контактной информации
     city = Column(String(100))
     date = Column(DateTime)
     duration = Column(Integer)  # часы

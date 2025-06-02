@@ -106,6 +106,8 @@ class EventCreate(EventBase):
     date: Optional[datetime] = None
     duration: Optional[int] = None
     payment: Optional[float] = None
+    treb: Optional[str] = None
+    contact: Optional[str] = None
 
 
 class EventUpdate(EventBase):

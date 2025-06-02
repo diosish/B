@@ -1,3 +1,4 @@
+# app/routers/admin.py - ИСПРАВЛЕННЫЙ РОУТЕР
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
@@ -7,34 +8,18 @@ from fastapi.responses import Response
 
 from .. import crud, models, schemas
 from ..database import get_db
-from ..auth import get_telegram_user_flexible
+from ..admin_auth import require_admin_auth  # Изменено: используем админ авторизацию
 
 router = APIRouter()
-
-
-@router.get("/check")
-def check_admin_access(telegram_user: dict = Depends(get_telegram_user_flexible)):
-    """Проверка прав администратора"""
-    # Простая проверка - можно расширить логикой проверки админов
-    admin_ids = [123456789]  # Добавьте сюда telegram_id администраторов
-
-    if telegram_user['id'] not in admin_ids:
-        raise HTTPException(status_code=403, detail="Admin access required")
-
-    return {"message": "Admin access granted"}
 
 
 @router.get("/stats")
 def get_system_stats(
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user_flexible)
+        admin_session: dict = Depends(require_admin_auth)  # Изменено
 ):
     """Получение статистики системы"""
-
-    # Проверка прав (упрощенная)
-    admin_ids = [123456789]
-    if telegram_user['id'] not in admin_ids:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    print(f"📊 Getting system stats for admin session: {admin_session['session_id'][:8]}...")
 
     stats = {
         "total_users": db.query(models.User).count(),
@@ -56,13 +41,10 @@ def list_all_users(
         skip: int = 0,
         limit: int = 100,
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user_flexible)
+        admin_session: dict = Depends(require_admin_auth)  # Изменено
 ):
     """Список всех пользователей"""
-
-    admin_ids = [123456789]
-    if telegram_user['id'] not in admin_ids:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    print(f"👥 Getting users list for admin session: {admin_session['session_id'][:8]}...")
 
     return db.query(models.User).order_by(models.User.created_at.desc()).offset(skip).limit(limit).all()
 
@@ -72,13 +54,10 @@ def list_all_events(
         skip: int = 0,
         limit: int = 100,
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user_flexible)
+        admin_session: dict = Depends(require_admin_auth)  # Изменено
 ):
     """Список всех мероприятий"""
-
-    admin_ids = [123456789]
-    if telegram_user['id'] not in admin_ids:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    print(f"📅 Getting events list for admin session: {admin_session['session_id'][:8]}...")
 
     return db.query(models.Event).order_by(models.Event.created_at.desc()).offset(skip).limit(limit).all()
 
@@ -88,13 +67,10 @@ def update_user_status(
         user_id: int,
         status_data: dict,
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user_flexible)
+        admin_session: dict = Depends(require_admin_auth)  # Изменено
 ):
     """Обновление статуса пользователя"""
-
-    admin_ids = [123456789]
-    if telegram_user['id'] not in admin_ids:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    print(f"🔄 Updating user {user_id} status by admin: {admin_session['session_id'][:8]}...")
 
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:
@@ -111,13 +87,10 @@ def update_user_status(
 def delete_event(
         event_id: int,
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user_flexible)
+        admin_session: dict = Depends(require_admin_auth)  # Изменено
 ):
     """Удаление мероприятия"""
-
-    admin_ids = [123456789]
-    if telegram_user['id'] not in admin_ids:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    print(f"🗑️ Deleting event {event_id} by admin: {admin_session['session_id'][:8]}...")
 
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
     if not event:
@@ -135,13 +108,10 @@ def delete_event(
 @router.get("/export/users")
 def export_users_csv(
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user_flexible)
+        admin_session: dict = Depends(require_admin_auth)  # Изменено
 ):
     """Экспорт пользователей в CSV"""
-
-    admin_ids = [123456789]
-    if telegram_user['id'] not in admin_ids:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    print(f"📊 Exporting users by admin: {admin_session['session_id'][:8]}...")
 
     users = db.query(models.User).all()
 
@@ -170,13 +140,10 @@ def export_users_csv(
 @router.post("/cleanup/events")
 def cleanup_old_events(
         db: Session = Depends(get_db),
-        telegram_user: dict = Depends(get_telegram_user_flexible)
+        admin_session: dict = Depends(require_admin_auth)  # Изменено
 ):
     """Очистка старых завершенных мероприятий"""
-
-    admin_ids = [123456789]
-    if telegram_user['id'] not in admin_ids:
-        raise HTTPException(status_code=403, detail="Admin access required")
+    print(f"🧹 Cleaning up old events by admin: {admin_session['session_id'][:8]}...")
 
     # Удаляем завершенные мероприятия старше 30 дней
     cutoff_date = datetime.utcnow() - timedelta(days=30)
@@ -202,7 +169,15 @@ def cleanup_old_events(
 
 
 @router.put("/applications/{application_id}/status")
-def update_application_status(application_id: int, status: str, db: Session = Depends(get_db)):
+def update_application_status(
+        application_id: int,
+        status: str,
+        db: Session = Depends(get_db),
+        admin_session: dict = Depends(require_admin_auth)  # Изменено
+):
+    """Обновление статуса заявки администратором"""
+    print(f"🔄 Updating application {application_id} status by admin: {admin_session['session_id'][:8]}...")
+
     if status not in ["pending", "approved", "rejected"]:
         raise HTTPException(status_code=400, detail="Invalid status")
 
@@ -211,3 +186,40 @@ def update_application_status(application_id: int, status: str, db: Session = De
         raise HTTPException(status_code=404, detail="Application not found")
 
     return {"message": "Status updated successfully"}
+
+
+# Новый endpoint для проверки прав администратора (совместимость со старым кодом)
+@router.get("/check")
+def check_admin_access(admin_session: dict = Depends(require_admin_auth)):
+    """Проверка прав администратора"""
+    return {
+        "message": "Admin access granted",
+        "session_id": admin_session["session_id"][:8] + "...",
+        "role": admin_session["role"]
+    }
+
+
+# Endpoint для получения информации о системе
+@router.get("/system-info")
+def get_system_info(admin_session: dict = Depends(require_admin_auth)):
+    """Получение информации о системе"""
+    import psutil
+    import os
+
+    return {
+        "system": {
+            "cpu_percent": psutil.cpu_percent(),
+            "memory_percent": psutil.virtual_memory().percent,
+            "disk_percent": psutil.disk_usage('/').percent,
+        },
+        "environment": {
+            "environment": os.getenv("ENVIRONMENT", "development"),
+            "database_url": os.getenv("DATABASE_URL", "").split("@")[-1] if "@" in os.getenv("DATABASE_URL",
+                                                                                             "") else "local",
+            "webapp_url": os.getenv("WEBAPP_URL", ""),
+        },
+        "admin_session": {
+            "session_id": admin_session["session_id"][:8] + "...",
+            "role": admin_session["role"]
+        }
+    }

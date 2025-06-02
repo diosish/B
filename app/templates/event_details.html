@@ -426,7 +426,7 @@
             }
         }
 
-        function displayEvent() {
+            function displayEvent() {
             document.getElementById('loadingSection').style.display = 'none';
             document.getElementById('eventContent').style.display = 'block';
 
@@ -450,12 +450,15 @@
             const description = eventData.description || 'Описание не указано';
             document.getElementById('eventDescription').textContent = description;
 
-
-            const treb = eventData.treb || 'Требований не указано';
-            document.getElementById('eventTreb').textContent = treb;
+            // Требования (новое поле)
+            const requirements = eventData.treb || 'Особых требований нет';
+            document.getElementById('eventTreb').textContent = requirements;
 
             // Организатор
             displayOrganizerInfo();
+
+            // Контактная информация (только для одобренных заявок)
+            displayContactInfo();
 
             // Кнопки действий
             displayActionButtons();
@@ -633,15 +636,23 @@
 
 
         function displayContactInfo() {
-            if (applicationStatus === 'approved' && eventData.description && eventData.description.includes('📞 Контакты:')) {
-                const contactMatch = eventData.description.match(/📞 Контакты:\s*([^\n]+)/);
-                if (contactMatch) {
-                    document.getElementById('contactInfo').innerHTML = `
-                        <strong>Свяжитесь с организатором:</strong><br>
-                        ${contactMatch[1]}
-                    `;
-                    document.getElementById('contactSection').style.display = 'block';
-                }
+            const contactSection = document.getElementById('contactSection');
+            const contactInfo = document.getElementById('contactInfo');
+
+            if (applicationStatus === 'approved' && eventData.contact) {
+                contactInfo.innerHTML = `
+                    <strong>📞 Контактная информация:</strong><br>
+                    <div style="white-space: pre-wrap; margin-top: 8px;">${eventData.contact}</div>
+                `;
+                contactSection.style.display = 'block';
+            } else if (applicationStatus === 'approved') {
+                contactInfo.innerHTML = `
+                    <strong>📞 Контакты:</strong><br>
+                    <div style="margin-top: 8px;">Организатор не указал контактную информацию. Свяжитесь через админа системы.</div>
+                `;
+                contactSection.style.display = 'block';
+            } else {
+                contactSection.style.display = 'none';
             }
         }
 

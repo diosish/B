@@ -84,10 +84,12 @@ def create_event(db: Session, event: schemas.EventCreate, organizer_id: int):
         if organizer.role != "organizer":
             raise ValueError(f"User {organizer_id} is not an organizer")
 
-        # Создаем мероприятие
+        # Создаем мероприятие с новыми полями
         db_event = models.Event(
             title=event.title,
             description=event.description,
+            treb=event.treb,  # Добавлено поле требований
+            contact=event.contact,  # Добавлено поле контактов
             city=event.city,
             date=event.date,
             duration=event.duration,

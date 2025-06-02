@@ -1,12 +1,15 @@
-# app/auth.py - ИСПРАВЛЕННАЯ ВЕРСИЯ
+# app/auth.py - ОБНОВЛЕННАЯ ВЕРСИЯ с проверкой активности пользователей
 import hashlib
 import hmac
 import json
 from urllib.parse import parse_qsl, unquote
-from fastapi import HTTPException, Header
+from fastapi import HTTPException, Header, Request
 from typing import Optional
 import os
 from datetime import datetime, timedelta
+
+from .database import SessionLocal
+from . import crud
 
 
 def extract_real_telegram_id(init_data: str) -> Optional[int]:
@@ -26,8 +29,8 @@ def extract_real_telegram_id(init_data: str) -> Optional[int]:
     return None
 
 
-def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
-    """Проверка подлинности данных Telegram WebApp с учетом реального ID"""
+def verify_telegram_auth(init_data: str, allow_test_mode: bool = True, check_active: bool = True) -> dict:
+    """Проверка подлинности данных Telegram WebApp с проверкой активности пользователя"""
 
     # Пытаемся извлечь реальный telegram_id
     real_telegram_id = extract_real_telegram_id(init_data)
@@ -43,7 +46,7 @@ def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
         # Если удалось извлечь реальный ID, используем его
         if real_telegram_id:
             print(f"🔍 Using real telegram_id in dev mode: {real_telegram_id}")
-            return {
+            user_data = {
                 'id': real_telegram_id,
                 'first_name': 'Dev',
                 'last_name': 'User',
@@ -54,7 +57,7 @@ def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
         else:
             # Фоллбек к тестовому пользователю только если не удалось извлечь реальный ID
             print("🧪 Using fallback test user")
-            return {
+            user_data = {
                 'id': 123456789,
                 'first_name': 'Test',
                 'last_name': 'User',
@@ -62,6 +65,12 @@ def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
                 'language_code': 'ru',
                 'is_premium': False
             }
+
+        # Проверяем активность пользователя
+        if check_active:
+            check_user_active_status(user_data['id'])
+
+        return user_data
 
     try:
         # Полная проверка для продакшена
@@ -118,7 +127,7 @@ def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
         if not isinstance(user_info['id'], int):
             raise ValueError("Invalid user ID format")
 
-        return {
+        telegram_user = {
             'id': user_info.get('id'),
             'first_name': user_info.get('first_name', ''),
             'last_name': user_info.get('last_name', ''),
@@ -127,6 +136,12 @@ def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
             'is_premium': user_info.get('is_premium', False),
             'auth_date': auth_date
         }
+
+        # Проверяем активность пользователя
+        if check_active:
+            check_user_active_status(telegram_user['id'])
+
+        return telegram_user
 
     except Exception as e:
         print(f"❌ Telegram auth error: {e}")
@@ -137,7 +152,7 @@ def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
 
             if real_telegram_id:
                 print(f"🔍 Using real telegram_id as fallback: {real_telegram_id}")
-                return {
+                user_data = {
                     'id': real_telegram_id,
                     'first_name': 'Dev',
                     'last_name': 'User',
@@ -146,7 +161,7 @@ def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
                     'is_premium': False
                 }
             else:
-                return {
+                user_data = {
                     'id': 123456789,
                     'first_name': 'Test',
                     'last_name': 'User',
@@ -155,32 +170,71 @@ def verify_telegram_auth(init_data: str, allow_test_mode: bool = True) -> dict:
                     'is_premium': False
                 }
 
+            # Проверяем активность пользователя даже в режиме разработки
+            if check_active:
+                check_user_active_status(user_data['id'])
+
+            return user_data
+
         raise HTTPException(
             status_code=401,
             detail=f"Telegram authentication failed: {str(e)}"
         )
 
 
+def check_user_active_status(telegram_id: int):
+    """Проверка активности пользователя в базе данных"""
+    db = SessionLocal()
+    try:
+        user = crud.get_user_by_telegram_id(db, telegram_id)
+        if user and not user.is_active:
+            print(f"❌ User {telegram_id} is deactivated")
+            raise HTTPException(
+                status_code=403,
+                detail="USER_DEACTIVATED"  # Специальный код для обработки на фронтенде
+            )
+        elif user:
+            print(f"✅ User {telegram_id} is active")
+    except HTTPException:
+        raise  # Пропускаем HTTPException дальше
+    except Exception as e:
+        print(f"⚠️ Error checking user status: {e}")
+        # Не блокируем пользователя при ошибке проверки БД
+    finally:
+        db.close()
+
+
 def get_telegram_user_flexible(authorization: Optional[str] = Header(None)):
-    """Получение данных пользователя из заголовка авторизации с гибкой проверкой"""
+    """Получение данных пользователя из заголовка авторизации с проверкой активности"""
     if not authorization:
         raise HTTPException(
             status_code=401,
             detail="Authorization header required"
         )
 
-    return verify_telegram_auth(authorization, allow_test_mode=True)
+    return verify_telegram_auth(authorization, allow_test_mode=True, check_active=True)
 
 
 def get_telegram_user_strict(authorization: Optional[str] = Header(None)):
-    """Строгая проверка Telegram аутентификации (для продакшена)"""
+    """Строгая проверка Telegram аутентификации (для продакшена) с проверкой активности"""
     if not authorization:
         raise HTTPException(
             status_code=401,
             detail="Authorization header required"
         )
 
-    return verify_telegram_auth(authorization, allow_test_mode=False)
+    return verify_telegram_auth(authorization, allow_test_mode=False, check_active=True)
+
+
+def get_telegram_user_no_active_check(authorization: Optional[str] = Header(None)):
+    """Получение данных пользователя БЕЗ проверки активности (для служебных целей)"""
+    if not authorization:
+        raise HTTPException(
+            status_code=401,
+            detail="Authorization header required"
+        )
+
+    return verify_telegram_auth(authorization, allow_test_mode=True, check_active=False)
 
 
 def validate_admin_access(telegram_user: dict) -> bool:
@@ -242,19 +296,31 @@ def validate_user_token(token: str) -> Optional[dict]:
         return None
 
 
-# Middleware для логирования аутентификации
-class AuthLoggerMiddleware:
+# Middleware для проверки деактивированных пользователей
+class UserStatusMiddleware:
     def __init__(self, app):
         self.app = app
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
-            # Логируем попытки аутентификации
-            headers = dict(scope.get("headers", []))
-            auth_header = headers.get(b"authorization", b"").decode()
+            request = Request(scope, receive)
 
-            if auth_header and auth_header != "test_data":
-                print(f"🔐 Auth attempt from {scope.get('client', ['unknown'])[0]}")
+            # Проверяем только пути приложения, исключаем статические файлы и API ошибок
+            if (request.url.path.startswith(("/volunteer", "/organizer", "/event/")) and
+                    not request.url.path.startswith(("/api/", "/static/", "/deactivated"))):
+
+                try:
+                    # Проверяем авторизацию и активность
+                    auth_header = request.headers.get('authorization') or request.cookies.get('auth_token')
+                    if auth_header:
+                        verify_telegram_auth(auth_header, allow_test_mode=True, check_active=True)
+                except HTTPException as e:
+                    if e.detail == "USER_DEACTIVATED":
+                        # Перенаправляем на страницу деактивации
+                        from fastapi.responses import RedirectResponse
+                        response = RedirectResponse(url="/deactivated", status_code=302)
+                        await response(scope, receive, send)
+                        return
 
         await self.app(scope, receive, send)
 

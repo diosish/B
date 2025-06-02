@@ -261,33 +261,190 @@
     <script>
         let tg = window.Telegram?.WebApp;
 
-        async function init() {
-            console.log('🔐 Initializing secure admin dashboard...');
+        // Исправленные функции для админ дашборда
 
-            if (tg) {
-                tg.ready();
-                tg.expand();
+        // Функция для получения заголовков запросов
+        function getAdminHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                // Cookie автоматически включается браузером для запросов на тот же домен
+                // Заголовок Authorization не нужен, так как используется cookie авторизация
+            };
+        }
 
-                tg.MainButton.setText('🚪 Выйти');
-                tg.MainButton.show();
-                tg.MainButton.onClick(logout);
+        // Функция для выполнения API запросов админки
+        async function adminApiRequest(url, options = {}) {
+            try {
+                const defaultOptions = {
+                    credentials: 'include', // Важно: включаем cookies в запрос
+                    headers: getAdminHeaders(),
+                    ...options
+                };
+
+                console.log(`🔐 Admin API request: ${options.method || 'GET'} ${url}`);
+
+                const response = await fetch(url, defaultOptions);
+
+                if (response.status === 401) {
+                    console.error('❌ Admin session expired, redirecting to login');
+                    window.location.href = '/admin/login';
+                    return null;
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP ${response.status}`);
+                }
+
+                return response.json();
+            } catch (error) {
+                console.error('❌ Admin API error:', error);
+                throw error;
+            }
+        }
+
+        // Исправленные функции загрузки данных
+        async function loadStats() {
+            try {
+                const stats = await adminApiRequest('/api/admin/stats');
+                if (stats) {
+                    displayStats(stats);
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+                document.getElementById('statsGrid').innerHTML =
+                    '<div class="error">Ошибка загрузки статистики</div>';
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const users = await adminApiRequest('/api/admin/users');
+                if (users) {
+                    displayUsers(users.slice(0, 50)); // Показываем первые 50
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+                document.getElementById('usersList').innerHTML =
+                    '<div class="error">Ошибка загрузки пользователей</div>';
+            }
+        }
+
+        async function loadEvents() {
+            try {
+                const events = await adminApiRequest('/api/admin/events');
+                if (events) {
+                    displayEvents(events.slice(0, 30)); // Показываем первые 30
+                }
+            } catch (error) {
+                console.error('Error loading events:', error);
+                document.getElementById('eventsList').innerHTML =
+                    '<div class="error">Ошибка загрузки мероприятий</div>';
+            }
+        }
+
+        // Исправленные функции действий
+        async function toggleUserStatus(userId, activate) {
+            try {
+                const result = await adminApiRequest(`/api/admin/users/${userId}/status`, {
+                    method: 'PUT',
+                    body: JSON.stringify({ is_active: activate })
+                });
+
+                if (result) {
+                    showSuccess(`Пользователь ${activate ? 'активирован' : 'деактивирован'}`);
+                    await loadUsers();
+                }
+            } catch (error) {
+                console.error('Error updating user status:', error);
+                alert('❌ Ошибка обновления статуса пользователя');
+            }
+        }
+
+        async function deleteEvent(eventId) {
+            if (!confirm('Удалить мероприятие? Это действие нельзя отменить.')) {
+                return;
             }
 
-            // Проверяем статус авторизации
-            await checkAuthStatus();
+            try {
+                const result = await adminApiRequest(`/api/admin/events/${eventId}`, {
+                    method: 'DELETE'
+                });
 
-            // Загружаем данные
-            await loadStats();
-            await loadUsers();
-            await loadEvents();
+                if (result) {
+                    showSuccess('Мероприятие удалено');
+                    await loadEvents();
+                    await loadStats();
+                }
+            } catch (error) {
+                console.error('Error deleting event:', error);
+                alert('❌ Ошибка удаления мероприятия');
+            }
+        }
 
-            // Обновляем время последней активности каждые 30 секунд
-            setInterval(updateLastActivity, 30000);
+        async function exportUsers() {
+            try {
+                console.log('📊 Starting user export...');
+
+                const response = await fetch('/api/admin/export/users', {
+                    credentials: 'include', // Включаем cookies
+                    headers: getAdminHeaders()
+                });
+
+                if (response.status === 401) {
+                    console.error('❌ Admin session expired');
+                    window.location.href = '/admin/login';
+                    return;
+                }
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showSuccess('Экспорт завершен');
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || 'Failed to export users');
+                }
+            } catch (error) {
+                console.error('Error exporting users:', error);
+                alert('❌ Ошибка экспорта пользователей');
+            }
+        }
+
+        async function cleanupOldEvents() {
+            if (!confirm('Удалить завершенные мероприятия старше 30 дней?')) {
+                return;
+            }
+
+            try {
+                const result = await adminApiRequest('/api/admin/cleanup/events', {
+                    method: 'POST'
+                });
+
+                if (result) {
+                    showSuccess(`Удалено ${result.deleted_count} старых мероприятий`);
+                    await loadEvents();
+                    await loadStats();
+                }
+            } catch (error) {
+                console.error('Error cleaning up events:', error);
+                alert('❌ Ошибка очистки мероприятий');
+            }
         }
 
         async function checkAuthStatus() {
             try {
-                const response = await fetch('/admin/auth/check');
+                const response = await fetch('/admin/auth/check', {
+                    credentials: 'include'
+                });
+
                 const status = await response.json();
 
                 if (!status.authenticated) {
@@ -296,7 +453,7 @@
                     return;
                 }
 
-                document.getElementById('sessionInfo').textContent = 
+                document.getElementById('sessionInfo').textContent =
                     `${status.session_id} (${status.role})`;
 
             } catch (error) {
@@ -305,25 +462,71 @@
             }
         }
 
-        function updateLastActivity() {
-            document.getElementById('lastActivity').textContent = 
-                new Date().toLocaleTimeString('ru-RU');
-        }
-
-        async function loadStats() {
+        async function extendSession() {
             try {
-                const response = await fetch('/api/admin/stats');
+                const response = await fetch('/admin/auth/extend', {
+                    credentials: 'include'
+                });
+
                 if (response.ok) {
-                    const stats = await response.json();
-                    displayStats(stats);
+                    const result = await response.json();
+                    showSuccess('Сессия продлена на 8 часов');
                 } else {
-                    throw new Error('Failed to load stats');
+                    throw new Error('Failed to extend session');
                 }
             } catch (error) {
-                console.error('Error loading stats:', error);
-                document.getElementById('statsGrid').innerHTML = 
-                    '<div class="error">Ошибка загрузки статистики</div>';
+                console.error('Error extending session:', error);
+                alert('❌ Ошибка продления сессии');
             }
+        }
+
+        async function checkSessionStatus() {
+            try {
+                const response = await fetch('/admin/auth/sessions', {
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`📊 Статистика сессий:\n\nАктивные сессии: ${result.stats.active_sessions}\nВсего сессий: ${result.stats.total_sessions}\nАктивные токены: ${result.stats.active_tokens}`);
+                } else {
+                    throw new Error('Failed to get session status');
+                }
+            } catch (error) {
+                console.error('Error checking session status:', error);
+                alert('❌ Ошибка получения статуса сессий');
+            }
+        }
+
+        async function logout() {
+            try {
+                const response = await fetch('/admin/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    console.log('✅ Logout successful');
+                } else {
+                    console.error('❌ Logout failed');
+                }
+            } catch (error) {
+                console.error('Error during logout:', error);
+            } finally {
+                // В любом случае перенаправляем на страницу входа
+                window.location.href = '/admin/login';
+            }
+        }
+
+        // Остальные функции остаются без изменений
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.className = 'success';
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
         }
 
         function displayStats(stats) {
@@ -355,25 +558,9 @@
             `;
         }
 
-        async function loadUsers() {
-            try {
-                const response = await fetch('/api/admin/users');
-                if (response.ok) {
-                    const users = await response.json();
-                    displayUsers(users.slice(0, 50)); // Показываем первые 50
-                } else {
-                    throw new Error('Failed to load users');
-                }
-            } catch (error) {
-                console.error('Error loading users:', error);
-                document.getElementById('usersList').innerHTML = 
-                    '<div class="error">Ошибка загрузки пользователей</div>';
-            }
-        }
-
         function displayUsers(users) {
             if (users.length === 0) {
-                document.getElementById('usersList').innerHTML = 
+                document.getElementById('usersList').innerHTML =
                     '<div class="error">Нет пользователей</div>';
                 return;
             }
@@ -398,25 +585,9 @@
             `).join('');
         }
 
-        async function loadEvents() {
-            try {
-                const response = await fetch('/api/admin/events');
-                if (response.ok) {
-                    const events = await response.json();
-                    displayEvents(events.slice(0, 30)); // Показываем первые 30
-                } else {
-                    throw new Error('Failed to load events');
-                }
-            } catch (error) {
-                console.error('Error loading events:', error);
-                document.getElementById('eventsList').innerHTML = 
-                    '<div class="error">Ошибка загрузки мероприятий</div>';
-            }
-        }
-
         function displayEvents(events) {
             if (events.length === 0) {
-                document.getElementById('eventsList').innerHTML = 
+                document.getElementById('eventsList').innerHTML =
                     '<div class="error">Нет мероприятий</div>';
                 return;
             }
@@ -438,159 +609,39 @@
             `).join('');
         }
 
-        function showSuccess(message) {
-            const successDiv = document.getElementById('successMessage');
-            successDiv.className = 'success';
-            successDiv.textContent = message;
-            successDiv.style.display = 'block';
-            setTimeout(() => {
-                successDiv.style.display = 'none';
-            }, 3000);
-        }
-
-        async function toggleUserStatus(userId, activate) {
-            try {
-                const response = await fetch(`/api/admin/users/${userId}/status`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ is_active: activate })
-                });
-
-                if (response.ok) {
-                    showSuccess(`Пользователь ${activate ? 'активирован' : 'деактивирован'}`);
-                    await loadUsers();
-                } else {
-                    throw new Error('Failed to update user status');
-                }
-            } catch (error) {
-                console.error('Error updating user status:', error);
-                alert('❌ Ошибка обновления статуса пользователя');
-            }
-        }
-
-        async function deleteEvent(eventId) {
-            if (!confirm('Удалить мероприятие? Это действие нельзя отменить.')) {
-                return;
-            }
-
-            try {
-                const response = await fetch(`/api/admin/events/${eventId}`, {
-                    method: 'DELETE'
-                });
-
-                if (response.ok) {
-                    showSuccess('Мероприятие удалено');
-                    await loadEvents();
-                    await loadStats();
-                } else {
-                    throw new Error('Failed to delete event');
-                }
-            } catch (error) {
-                console.error('Error deleting event:', error);
-                alert('❌ Ошибка удаления мероприятия');
-            }
-        }
-
-        async function exportUsers() {
-            try {
-                const response = await fetch('/api/admin/export/users');
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    showSuccess('Экспорт завершен');
-                } else {
-                    throw new Error('Failed to export users');
-                }
-            } catch (error) {
-                console.error('Error exporting users:', error);
-                alert('❌ Ошибка экспорта пользователей');
-            }
-        }
-
-        async function cleanupOldEvents() {
-            if (!confirm('Удалить завершенные мероприятия старше 30 дней?')) {
-                return;
-            }
-
-            try {
-                const response = await fetch('/api/admin/cleanup/events', {
-                    method: 'POST'
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    showSuccess(`Удалено ${result.deleted_count} старых мероприятий`);
-                    await loadEvents();
-                    await loadStats();
-                } else {
-                    throw new Error('Failed to cleanup events');
-                }
-            } catch (error) {
-                console.error('Error cleaning up events:', error);
-                alert('❌ Ошибка очистки мероприятий');
-            }
-        }
-
-        async function extendSession() {
-            try {
-                const response = await fetch('/admin/auth/extend');
-                if (response.ok) {
-                    const result = await response.json();
-                    showSuccess('Сессия продлена на 8 часов');
-                } else {
-                    throw new Error('Failed to extend session');
-                }
-            } catch (error) {
-                console.error('Error extending session:', error);
-                alert('❌ Ошибка продления сессии');
-            }
-        }
-
-        async function checkSessionStatus() {
-            try {
-                const response = await fetch('/admin/auth/sessions');
-                if (response.ok) {
-                    const result = await response.json();
-                    alert(`📊 Статистика сессий:\n\nАктивные сессии: ${result.stats.active_sessions}\nВсего сессий: ${result.stats.total_sessions}\nАктивные токены: ${result.stats.active_tokens}`);
-                } else {
-                    throw new Error('Failed to get session status');
-                }
-            } catch (error) {
-                console.error('Error checking session status:', error);
-                alert('❌ Ошибка получения статуса сессий');
-            }
+        function updateLastActivity() {
+            document.getElementById('lastActivity').textContent =
+                new Date().toLocaleTimeString('ru-RU');
         }
 
         function generateReport() {
             showSuccess('Отчет системы сгенерирован');
         }
 
-        async function logout() {
-            try {
-                const response = await fetch('/admin/auth/logout', {
-                    method: 'POST'
-                });
+        // Инициализация
+        async function init() {
+            console.log('🔐 Initializing secure admin dashboard...');
 
-                if (response.ok) {
-                    console.log('✅ Logout successful');
-                } else {
-                    console.error('❌ Logout failed');
-                }
-            } catch (error) {
-                console.error('Error during logout:', error);
-            } finally {
-                // В любом случае перенаправляем на страницу входа
-                window.location.href = '/admin/login';
+            if (window.Telegram?.WebApp) {
+                const tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand();
+
+                tg.MainButton.setText('🚪 Выйти');
+                tg.MainButton.show();
+                tg.MainButton.onClick(logout);
             }
+
+            // Проверяем статус авторизации
+            await checkAuthStatus();
+
+            // Загружаем данные
+            await loadStats();
+            await loadUsers();
+            await loadEvents();
+
+            // Обновляем время последней активности каждые 30 секунд
+            setInterval(updateLastActivity, 30000);
         }
 
         document.addEventListener('DOMContentLoaded', init);
