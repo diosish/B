@@ -341,12 +341,15 @@
             // Собираем данные формы
             const eventData = {
                 title: document.getElementById('eventTitle').value.trim(),
-                description: buildFullDescription(),
+                description: buildDescription(),
+                contact: buildContact(),
+                treb: buildTreb(),
                 city: document.getElementById('eventCity').value.trim(),
                 payment: parseFloat(document.getElementById('eventPayment').value) || 0,
                 date: document.getElementById('eventDate').value || null,
                 duration: parseInt(document.getElementById('eventDuration').value) || null,
                 work_type: document.getElementById('workType').value
+                organizer_id: currentUser.id
             };
 
             console.log('📊 Event data:', eventData);
@@ -412,20 +415,17 @@
             }
         }
 
-        function buildFullDescription() {
+        function buildDescription() {
             let description = document.getElementById('eventDescription').value.trim();
-            const requirements = document.getElementById('eventRequirements').value.trim();
-            const contact = document.getElementById('eventContact').value.trim();
-
-            if (requirements) {
-                description += '\n\n📋 Требования:\n' + requirements;
-            }
-
-            if (contact) {
-                description += '\n\n📞 Контакты:\n' + contact;
-            }
-
             return description;
+        }
+         function buildContact() {
+            let contact = document.getElementById('eventContact').value.trim();
+            return contact;
+        }
+         function buildTreb() {
+            let requirements = document.getElementById('eventRequirements').value.trim();
+            return requirements;
         }
 
         document.addEventListener('DOMContentLoaded', init);

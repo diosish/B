@@ -1,8 +1,8 @@
-# app/main.py - УЛУЧШЕННАЯ ВЕРСИЯ
+# app/main.py - ОБНОВЛЕННАЯ ВЕРСИЯ с админ авторизацией
 from fastapi import FastAPI, Request, Depends, HTTPException, status
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -16,8 +16,10 @@ from dotenv import load_dotenv
 from .database import engine, SessionLocal
 from .models import Base
 from .routers import volunteers, organizers, events, admin, applications, auth, reviews, export
+from .routers import admin_auth  # НОВЫЙ ИМПОРТ
 from .health import router as health_router
 from .auth import get_telegram_user_flexible
+from .admin_auth import AdminActivityMiddleware, require_admin_auth, optional_admin_auth  # НОВЫЙ ИМПОРТ
 from .monitoring import start_background_monitoring
 from . import crud
 
@@ -131,6 +133,7 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 
 # Добавление middleware
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+app.add_middleware(AdminActivityMiddleware)  # НОВЫЙ MIDDLEWARE
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(ErrorHandlingMiddleware)
 
@@ -175,6 +178,9 @@ app.include_router(reviews.router, prefix="/api/reviews", tags=["reviews"])
 app.include_router(export.router, prefix="/api/export", tags=["export"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
+# НОВЫЙ РОУТЕР для админ авторизации
+app.include_router(admin_auth.router, prefix="/admin", tags=["admin-auth"])
+
 
 # ==============================================
 # ФУНКЦИИ ПРОВЕРКИ РОЛЕЙ
@@ -209,10 +215,37 @@ async def root(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+# ==============================================
+# АДМИН ПАНЕЛЬ (ОБНОВЛЕННАЯ)
+# ==============================================
+
+@app.get("/admin/login", response_class=HTMLResponse)
+async def admin_login_redirect(request: Request):
+    """Редирект на страницу входа админа"""
+    return RedirectResponse(url="/admin/login", status_code=302)
+
+
+@app.get("/admin/dashboard", response_class=HTMLResponse)
+async def admin_dashboard(
+    request: Request,
+    admin_session: dict = Depends(require_admin_auth)
+):
+    """Админ панель - только для авторизованных администраторов"""
+    return templates.TemplateResponse(
+        "admin_dashboard_secure.html",
+        {"request": request, "admin_session": admin_session}
+    )
+
+
 @app.get("/admin", response_class=HTMLResponse)
-async def admin_dashboard(request: Request):
-    """Админ панель - только для администраторов"""
-    return templates.TemplateResponse("admin_dashboard.html", {"request": request})
+async def admin_root(request: Request):
+    """Корень админ панели - перенаправление"""
+    # Проверяем, авторизован ли админ
+    admin_session = optional_admin_auth(request)
+    if admin_session:
+        return RedirectResponse(url="/admin/dashboard", status_code=302)
+    else:
+        return RedirectResponse(url="/admin/login", status_code=302)
 
 
 # ==============================================
@@ -379,7 +412,8 @@ async def get_version():
     return {
         "version": "1.0.0",
         "environment": os.getenv("ENVIRONMENT", "development"),
-        "build_time": "2024-01-01T00:00:00Z"  # В реальном проекте получать из CI/CD
+        "build_time": "2024-01-01T00:00:00Z",
+        "admin_auth": "enabled"  # НОВОЕ ПОЛЕ
     }
 
 

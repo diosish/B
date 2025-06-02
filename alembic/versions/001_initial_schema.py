@@ -42,6 +42,8 @@ def upgrade() -> None:
                     sa.Column('id', sa.Integer(), nullable=False),
                     sa.Column('title', sa.String(length=255), nullable=False),
                     sa.Column('description', sa.Text(), nullable=True),
+                    sa.Column('treb', sa.Text(), nullable=True),
+                    sa.Column('contact', sa.Text(), nullable=True),
                     sa.Column('city', sa.String(length=100), nullable=True),
                     sa.Column('date', sa.DateTime(), nullable=True),
                     sa.Column('duration', sa.Integer(), nullable=True),

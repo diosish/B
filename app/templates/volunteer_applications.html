@@ -298,21 +298,32 @@
             try {
                 console.log('📡 Loading applications for user:', currentUser.id);
 
-                const response = await fetch(`/api/applications/my`, {
+                const response = await fetch(`/api/applications/volunteer/${currentUser.id}`, {
                     headers: getAuthHeaders()
                 });
 
+                console.log('Response status:', response.status);
+
                 if (response.ok) {
                     allApplications = await response.json();
+                    console.log('✅ Applications loaded:', allApplications.length);
                     displayApplications(allApplications);
                 } else {
-                    throw new Error('Failed to load applications');
+                    const errorText = await response.text();
+                    console.error('❌ Error response:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
                 }
             } catch (error) {
-                console.error('Error loading applications:', error);
+                console.error('❌ Error loading applications:', error);
                 document.getElementById('applicationsList').innerHTML = `
-                    <div class="no-applications">
-                        <p>❌ Ошибка загрузки заявок</p>
+                    <div class="telegram-card">
+                        <div class="no-applications">
+                            <p>❌ Ошибка загрузки заявок</p>
+                            <p><small>${error.message}</small></p>
+                            <button class="action-button" onclick="loadApplications()">
+                                🔄 Попробовать снова
+                            </button>
+                        </div>
                     </div>
                 `;
             }
@@ -323,89 +334,102 @@
 
             if (applications.length === 0) {
                 container.innerHTML = `
-                    <div class="no-applications">
-                        <h5>📝 У вас пока нет заявок</h5>
-                        <p>Подайте заявку на участие в мероприятии, чтобы она появилась здесь!</p>
+                    <div class="telegram-card">
+                        <div class="no-applications">
+                            <h5>📭 ${currentFilter === 'all' ? 'У вас пока нет заявок' : 'Нет заявок в этой категории'}</h5>
+                            <p>Найдите интересные мероприятия и подайте заявку!</p>
+                            <button class="action-button" onclick="nav.goToVolunteerEvents()">
+                                📅 Найти мероприятия
+                            </button>
+                        </div>
                     </div>
                 `;
                 return;
             }
 
-            container.innerHTML = applications.map(application => `
-                <div class="application-card ${application.status.toLowerCase()}" data-status="${application.status.toLowerCase()}">
-                    <div class="status-badge status-${application.status.toLowerCase()}">
-                        ${getStatusText(application.status)}
-                    </div>
-
-                    <div class="event-title">${application.event.title}</div>
-
-                    <div class="event-details">
-                        <div>📅 Дата: ${new Date(application.event.date).toLocaleDateString('ru-RU')}</div>
-                        <div>📍 Место: ${application.event.city || 'Не указано'}</div>
-                        ${application.event.payment ? `<div>💰 Оплата: ${application.event.payment} ₽</div>` : ''}
-                        ${application.event.work_type ? `<div>🏷️ Тип работы: ${application.event.work_type}</div>` : ''}
-                        ${application.event.duration ? `<div>⏰ Длительность: ${application.event.duration} ч</div>` : ''}
-                    </div>
-
-                    <div class="event-description">
-                        ${application.event.description || 'Описание отсутствует'}
-                    </div>
-
-                    <div class="application-date">
-                        📝 Заявка подана: ${new Date(application.applied_at).toLocaleDateString('ru-RU')}
-                    </div>
-
-                    ${application.status === 'pending' ? `
-                        <button class="action-button" onclick="cancelApplication(${application.id})">
-                            Отменить заявку
-                        </button>
-                    ` : ''}
-
-                    ${application.status === 'rejected' ? `
-                        <button class="action-button" onclick="window.location.href='/volunteer/events'">
-                            Найти другие мероприятия
-                        </button>
-                    ` : ''}
-
-                    <button class="action-button" onclick="window.location.href='/event/${application.event.id}'">
-                        Подробнее о мероприятии
-                    </button>
-                </div>
-            `).join('');
-        }
-
-        function getStatusText(status) {
-            const statusMap = {
-                'pending': '⏳ Ожидает',
-                'approved': '✅ Одобрена',
-                'rejected': '❌ Отклонена'
+            const statusEmoji = {
+                'pending': '⏳',
+                'approved': '✅',
+                'rejected': '❌'
             };
-            return statusMap[status] || status;
-        }
 
-        function filterApplications(status) {
-            currentFilter = status;
-            
-            // Обновляем активную вкладку
-            document.querySelectorAll('.filter-tab').forEach(tab => {
-                tab.classList.remove('active');
-                if (tab.textContent.trim().includes(getStatusText(status.toUpperCase()))) {
-                    tab.classList.add('active');
+            const statusText = {
+                'pending': 'На рассмотрении',
+                'approved': 'Одобрена',
+                'rejected': 'Отклонена'
+            };
+
+            container.innerHTML = applications.map(app => {
+                const event = app.event;
+                const statusClass = `status-${app.status}`;
+
+                // Показываем контактную информацию только для одобренных заявок
+                const showContact = app.status === 'approved' && event.description && event.description.includes('📞 Контакты:');
+                let contactInfo = '';
+
+                if (showContact) {
+                    const contactMatch = event.description.match(/📞 Контакты:\s*([^\n]+)/);
+                    if (contactMatch) {
+                        contactInfo = `
+                            <div class="contact-info">
+                                <strong>📞 Контакты организатора:</strong><br>
+                                ${contactMatch[1]}
+                            </div>
+                        `;
+                    }
                 }
-            });
 
-            // Фильтруем заявки
-            const filteredApplications = status === 'all' 
-                ? allApplications 
-                : allApplications.filter(app => app.status.toLowerCase() === status);
+                return `
+                    <div class="telegram-card application-card ${app.status}" data-status="${app.status}">
+                        <span class="status-badge ${statusClass}">
+                            ${statusEmoji[app.status]} ${statusText[app.status]}
+                        </span>
 
-            displayApplications(filteredApplications);
+                        <div class="event-title">${event.title}</div>
+
+                        <div class="event-details">
+                            <div>📍 ${event.city || 'Не указан'}</div>
+                            <div>💰 ${event.payment || 0} ₽</div>
+                            ${event.date ? `<div>📅 ${new Date(event.date).toLocaleDateString('ru-RU')}</div>` : ''}
+                            ${event.work_type ? `<div>🏷️ ${event.work_type}</div>` : ''}
+                            ${event.duration ? `<div>⏰ ${event.duration} ч</div>` : ''}
+                        </div>
+
+                        ${event.description ? `
+                            <div class="event-description">
+                                ${event.description.substring(0, 150)}${event.description.length > 150 ? '...' : ''}
+                            </div>
+                        ` : ''}
+
+                        ${contactInfo}
+
+                        <div class="application-date">
+                            Заявка подана: ${new Date(app.applied_at).toLocaleDateString('ru-RU')} в ${new Date(app.applied_at).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'})}
+                        </div>
+
+                        ${app.status === 'pending' ? `
+                            <button class="action-button" style="background: #ffc107;" onclick="withdrawApplication(${app.id})">
+                                ↩️ Отозвать заявку
+                            </button>
+                        ` : ''}
+
+                        ${app.status === 'rejected' ? `
+                            <button class="action-button" onclick="nav.goToVolunteerEvents()">
+                                🔍 Найти другие мероприятия
+                            </button>
+                        ` : ''}
+
+                        <button class="action-button" onclick="viewEventDetails(${event.id})">
+                            👁️ Подробнее о мероприятии
+                        </button>
+                    </div>
+                `;
+            }).join('');
         }
 
-        async function cancelApplication(applicationId) {
-            if (!confirm('Вы уверены, что хотите отменить эту заявку?')) {
-                return;
-            }
+        async function withdrawApplication(applicationId) {
+            const confirmed = confirm('Отозвать заявку?\n\nВы сможете подать заявку снова позже.');
+            if (!confirmed) return;
 
             try {
                 const response = await fetch(`/api/applications/${applicationId}`, {
@@ -417,18 +441,42 @@
                     if (tg && tg.showAlert) {
                         tg.showAlert('✅ Заявка отозвана');
                     }
+
+                    // Обновляем список заявок
                     await loadApplications();
                 } else {
-                    throw new Error('Failed to cancel application');
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Failed to withdraw application');
                 }
             } catch (error) {
-                console.error('Error canceling application:', error);
+                console.error('Error withdrawing application:', error);
                 if (tg && tg.showAlert) {
                     tg.showAlert('❌ Ошибка: ' + error.message);
-                } else {
-                    alert('Не удалось отменить заявку. Пожалуйста, попробуйте позже.');
                 }
             }
+        }
+
+
+        function filterApplications(status) {
+            currentFilter = status;
+
+            // Обновляем активную вкладку
+            document.querySelectorAll('.filter-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Фильтруем заявки
+            let filteredApplications = allApplications;
+            if (status !== 'all') {
+                filteredApplications = allApplications.filter(app => app.status === status);
+            }
+
+            displayApplications(filteredApplications);
+        }
+
+        function viewEventDetails(eventId) {
+            window.location.href = `/event/${eventId}`;
         }
 
         function showError(message) {
