@@ -1,20 +1,14 @@
-# app/telegram_bot.py - ОБНОВЛЕННАЯ ВЕРСИЯ
+# app/telegram_bot.py - Исправленная версия
 import asyncio
 import httpx
 import os
-import secrets
-import hashlib
-from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBAPP_URL = os.getenv("WEBAPP_URL")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")  # Задайте в .env файле
-
-# Временное хранилище админ токенов (в продакшене используйте Redis)
-admin_tokens = {}
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
 
 
 class TelegramBot:
@@ -69,49 +63,10 @@ class TelegramBot:
             return response.json()
 
 
-def generate_admin_token() -> str:
-    """Генерация временного токена для админ панели"""
-    token = secrets.token_urlsafe(32)
-    expires_at = datetime.utcnow() + timedelta(hours=2)  # Токен действует 2 часа
-
-    admin_tokens[token] = {
-        'expires_at': expires_at,
-        'created_at': datetime.utcnow()
-    }
-
-    # Очищаем старые токены
-    cleanup_expired_tokens()
-
-    return token
-
-
-def cleanup_expired_tokens():
-    """Очистка просроченных токенов"""
-    now = datetime.utcnow()
-    expired_tokens = [token for token, data in admin_tokens.items()
-                      if data['expires_at'] < now]
-
-    for token in expired_tokens:
-        admin_tokens.pop(token, None)
-
-
-def validate_admin_token(token: str) -> bool:
-    """Проверка валидности админ токена"""
-    if token not in admin_tokens:
-        return False
-
-    if admin_tokens[token]['expires_at'] < datetime.utcnow():
-        admin_tokens.pop(token, None)
-        return False
-
-    return True
-
-
 def is_admin_user(telegram_id: int) -> bool:
     """Проверка, является ли пользователь администратором"""
     admin_ids_str = os.getenv("ADMIN_TELEGRAM_IDS", "123456789")
     admin_ids = [int(id_str.strip()) for id_str in admin_ids_str.split(",") if id_str.strip()]
-
     return telegram_id in admin_ids
 
 
@@ -146,8 +101,15 @@ async def handle_admin_command(chat_id: int, user_id: int):
         await bot.send_message(chat_id, "❌ У вас нет прав администратора.")
         return
 
-    # Генерируем токен
-    admin_token = generate_admin_token()
+    # Импортируем admin_auth только здесь, чтобы избежать циклических импортов
+    try:
+        from .admin_auth import admin_auth
+        # Генерируем токен
+        admin_token = admin_auth.generate_bot_token()
+    except ImportError:
+        print("❌ Failed to import admin_auth")
+        await bot.send_message(chat_id, "❌ Ошибка системы администрирования.")
+        return
 
     # Создаем ссылку на админ панель
     admin_url = f"{WEBAPP_URL}/admin/login?token={admin_token}"
@@ -156,7 +118,7 @@ async def handle_admin_command(chat_id: int, user_id: int):
 🔐 <b>Доступ к админ панели</b>
 
 Ваша ссылка для входа в админ панель:
-<code>{admin_url}</code>
+<a href="{admin_url}">🚀 Войти в админ панель</a>
 
 ⚠️ <b>Важно:</b>
 • Ссылка действительна 2 часа
@@ -165,6 +127,9 @@ async def handle_admin_command(chat_id: int, user_id: int):
 
 <b>Логин:</b> <code>admin</code>
 <b>Пароль:</b> <code>{ADMIN_PASSWORD}</code>
+
+<i>Если кнопка не работает, скопируйте ссылку:</i>
+<code>{admin_url}</code>
     """
 
     await bot.send_message(chat_id, admin_text.strip())
